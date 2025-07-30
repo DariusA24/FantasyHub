@@ -4,12 +4,12 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
     DropdownMenuSeparator
-} from '@/components/ui/dropdown-menu';
+} from '../ui/dropdown-menu';
 import { LuAlignLeft } from 'react-icons/lu';
 import Link from 'next/link';
 import { Button } from '../ui/button';
 import UserIcon from './UserIcon';
-import { SignedOut, SignIn, SignInButton, SignUpButton } from '@clerk/nextjs';
+import { SignedIn, SignedOut, SignIn, SignInButton, SignOutButton, SignUpButton } from '@clerk/nextjs';
 
 function LinkDropDown() {
     return (
@@ -34,6 +34,13 @@ function LinkDropDown() {
                         </SignUpButton>
                     </DropdownMenuItem>
                 </SignedOut>
+                <SignedIn>
+                    <DropdownMenuItem>
+                        <SignOutButton>
+                            <button className='w-full text-left'>Sign Out</button>
+                        </SignOutButton>
+                    </DropdownMenuItem>
+                </SignedIn>
             </DropdownMenuContent>
         </DropdownMenu>
     )
