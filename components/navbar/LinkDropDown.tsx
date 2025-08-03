@@ -1,10 +1,4 @@
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-    DropdownMenuSeparator
-} from '../ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../ui/dropdown-menu';
 import { LuAlignLeft } from 'react-icons/lu';
 import Link from 'next/link';
 import { Button } from '../ui/button';
@@ -15,35 +9,36 @@ function LinkDropDown() {
     return (
         <DropdownMenu>
             <DropdownMenuTrigger>
-                <Button variant='outline' className='flex gap-4 max-w-[100px]'>
-                    <LuAlignLeft className='w-6 h-6' />
-                    <UserIcon />
+                <Button variant="outline" className="flex gap-2 items-center max-w-[50px]">
+                    <LuAlignLeft className="w-6 h-6" />
+                 
                 </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className='w-52' align='start' sideOffset={10}>
+            <DropdownMenuContent className="w-52" align="start" sideOffset={10}>
                 <SignedOut>
-                    <DropdownMenuItem>
-                        <SignInButton>
-                            <button className='w-full text-left'>Login</button>
-                        </SignInButton>
-                    </DropdownMenuItem>
+                    <SignInButton mode="modal">
+                        <DropdownMenuItem className="cursor-pointer hover:bg-gray-100">
+                            Login
+                        </DropdownMenuItem>
+                    </SignInButton>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem>
-                        <SignUpButton>
-                            <button className="w-full text-left">Register</button>
-                        </SignUpButton>
-                    </DropdownMenuItem>
+                    <SignUpButton mode="modal">
+                        <DropdownMenuItem className="cursor-pointer hover:bg-gray-100">
+                            Register
+                        </DropdownMenuItem>
+                    </SignUpButton>
                 </SignedOut>
                 <SignedIn>
-                    <DropdownMenuItem>
-                        <SignOutButton>
-                            <button className='w-full text-left'>Sign Out</button>
-                        </SignOutButton>
-                    </DropdownMenuItem>
+                    <SignOutButton>
+                        <DropdownMenuItem className="cursor-pointer hover:bg-gray-100">
+                            Sign Out
+                        </DropdownMenuItem>
+                    </SignOutButton>
                 </SignedIn>
             </DropdownMenuContent>
         </DropdownMenu>
-    )
+    );
 }
 
-export default LinkDropDown; 
+export default LinkDropDown;
+
