@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from 'next/font/google'; 
 import "./globals.css";
 import Navbar from "../components/navbar/Navbar";
-import Footer from "../components/Footer";
+import Footer from "../components/ui/Footer";
 import Providers from "./providers";
 import { ClerkProvider } from '@clerk/nextjs'
 

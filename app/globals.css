@@ -1,9 +1,14 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+
+html, body {
+  font-family: 'Inter', sans-serif;
+}
+
 @layer components {
   .container {
-    @apply mx-auto max-w-6xl xl:max-w-7xl px-8;
+    @apply mx-auto max-w-7xl xl:max-w-7xl px-8;
   }
 }
 

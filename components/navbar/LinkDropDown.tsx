@@ -11,7 +11,7 @@ function LinkDropDown() {
             <DropdownMenuTrigger>
                 <Button variant="outline" className="flex gap-2 items-center max-w-[50px]">
                     <LuAlignLeft className="w-6 h-6" />
-                 
+                    <UserIcon />
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-52" align="start" sideOffset={10}>
@@ -29,6 +29,11 @@ function LinkDropDown() {
                     </SignUpButton>
                 </SignedOut>
                 <SignedIn>
+                    <Link href="/profile" className="no-underline">
+                        <DropdownMenuItem className="cursor-pointer hover:bg-gray-100">
+                            Profile
+                        </DropdownMenuItem>
+                    </Link>
                     <SignOutButton>
                         <DropdownMenuItem className="cursor-pointer hover:bg-gray-100">
                             Sign Out

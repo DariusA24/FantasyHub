@@ -10,6 +10,12 @@ export default {
   theme: {
   	extend: {
   		colors: {
+			gold: "#F4D06F",
+			muted: "#B5B7C0",
+			card: {
+				g: "#0F1117",
+				border: "#1D212B",
+			},
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
   			card: {
