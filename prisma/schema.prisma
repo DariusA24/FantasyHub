@@ -1,6 +1,6 @@
 datasource db {
   provider = "postgresql"
-  // ...existing config (URL env var, etc.)...
+  url      = env("DATABASE_URL")
 }
 
 generator client {
@@ -41,6 +41,7 @@ model SleeperPlayer {
   team      String?
   rawJson   Json     // store entire Sleeper payload if you want
   updatedAt DateTime @updatedAt
+  maddenStats  maddenPlayer[]
 }
 
 model HubLeague {
@@ -86,3 +87,28 @@ model HubLeagueMember {
   @@unique([hubLeagueId, profileId])
   @@index([profileId])
 }
+
+model maddenPlayer {
+  id           String   @map("id")
+  full_name    String?
+  position     String?
+  team         String?
+  year         Int
+  week         Int
+  overall      Int?
+  shared_stats Json?    @default("{}")
+  qb_stats     Json?    @default("{}")
+  wr_stats     Json?    @default("{}")
+  te_stats     Json?    @default("{}")
+  rb_stats     Json?    @default("{}")
+  k_stats      Json?    @default("{}")
+  created_at   DateTime? @default(now()) @db.Timestamptz
+
+  sleeperPlayer SleeperPlayer @relation(fields: [id], references: [id])
+
+  @@id([id, year, week])
+  @@index([id])
+  @@map("maddenPlayer")
+}
+
+

@@ -30,7 +30,7 @@ type UserProfile = {
 type HubLeagueSeason = {
   id: string;
   hubLeagueId: string;
-  sleeperLeagueId: string; // <-- where the Sleeper league id actually lives
+  sleeperLeagueId: string;
   // ...any other fields...
 };
 
@@ -38,14 +38,10 @@ export default function LeaguePage() {
   const params = useParams();
   const { isLoaded, isSignedIn, user } = useUser();
 
-  // URL param: the hub league id (internal id)
-  const hubLeagueId = String(params?.hubLeagueId ?? "");
-
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
   const [myRoster, setMyRoster] = useState<SleeperRoster | null>(null);
   const [player,   setPlayer]   = useState<{ [key: string]: SleeperPlayer }>({});
-  // Selected player for stats view
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [isStatsOpen, setIsStatsOpen] = useState(false);
 
@@ -59,7 +55,9 @@ export default function LeaguePage() {
         return;
       }
 
-      if (!hubLeagueId || hubLeagueId === "undefined") {
+      // hubLeagueId comes from the dynamic route segment [hubLeagueId]
+      const hubLeagueId = params?.hubLeagueId;
+      if (!hubLeagueId || typeof hubLeagueId !== "string") {
         setError("Invalid hub league id.");
         setLoading(false);
         return;
@@ -69,51 +67,49 @@ export default function LeaguePage() {
       setError(null);
 
       try {
-        // 1) Load the HubLeagueSeason to get the Sleeper league id
+        // 1) Get HubLeagueSeason so we can read sleeperLeagueId
         const seasonRes = await fetch(`/api/hub-league-season/${hubLeagueId}`);
         if (!seasonRes.ok) {
           const txt = await seasonRes.text().catch(() => "");
-          console.error(
-            "LeaguePage /api/hub-league-season failed:",
-            seasonRes.status,
-            txt
-          );
-          if (seasonRes.status === 404) {
-            setError("Hub league season not found.");
-          } else if (seasonRes.status === 400) {
-            setError("Invalid hub league id.");
-          } else {
-            setError("Failed to load league season metadata.");
-          }
+          console.error("LeaguePage /api/hub-league-season failed:", txt);
+          setError("Failed to load hub league season.");
           setLoading(false);
           return;
         }
 
-        const seasonJson = await seasonRes.json();
-        console.log("fetched hub league season data:", seasonJson);
-        // API returns the HubLeagueSeason object directly
-        const hubLeagueSeason: HubLeagueSeason | null =
-          (seasonJson as HubLeagueSeason) || null;
-
-        if (!hubLeagueSeason || !hubLeagueSeason.sleeperLeagueId) {
-          console.error(
-            "LeaguePage: hubLeagueSeason missing or no sleeperLeagueId:",
-            hubLeagueSeason
-          );
-          setError("No Sleeper league is linked to this hub league season.");
-          setLoading(false);
-          return;
-        }
-
-        const sleeperLeagueId = hubLeagueSeason.sleeperLeagueId;
+        const seasonJson: any = await seasonRes.json();
+        console.log("[LeaguePage] seasonJson:", seasonJson);
         console.log(
-          "[LeaguePage] hubLeagueId:",
-          hubLeagueId,
-          "sleeperLeagueId:",
-          sleeperLeagueId
+          "[LeaguePage] seasonJson keys:",
+          seasonJson && typeof seasonJson === "object"
+            ? Object.keys(seasonJson)
+            : seasonJson
         );
 
-        // 2) Load user profile to get Sleeper user id
+        if (!seasonJson) {
+          console.error(
+            "[LeaguePage] Could not resolve hubLeagueSeason from seasonJson"
+          );
+          setError("Unexpected hub league season response from server.");
+          setLoading(false);
+          return;
+        }
+
+        console.log("hub league season:" + seasonJson.sleeperLeagueId)
+
+        if (!seasonJson.sleeperLeagueId) {
+          console.error(
+            "[LeaguePage] No sleeperLeagueId on hubLeagueSeason:",
+            seasonJson
+          );
+          setError("No Sleeper league linked to this hub league season.");
+          setLoading(false);
+          return;
+        }
+
+        const sleeperLeagueId = seasonJson.sleeperLeagueId;
+
+        // 2) Load user profile -> sleeperProfileId
         const profileRes = await fetch("/api/profile", { method: "GET" });
         if (!profileRes.ok) {
           const txt = await profileRes.text().catch(() => "");
@@ -125,7 +121,7 @@ export default function LeaguePage() {
 
         const profileJson = await profileRes.json();
         const userProfile: UserProfile | null =
-          (profileJson && profileJson.profile) || null;
+          (profileJson && profileJson.profile) || (profileJson as UserProfile) || null;
 
         const sleeperProfileId = userProfile?.sleeperProfileId || null;
 
@@ -135,9 +131,8 @@ export default function LeaguePage() {
           return;
         }
 
-        // 3) Call Sleeper using *sleeperLeagueId* (from HubLeagueSeason)
-        const rosters: SleeperRoster[] =
-          await getSleeperLeagueRosters(sleeperLeagueId);
+        // 3) Use the Sleeper league id from HubLeagueSeason
+        const rosters: SleeperRoster[] = await getSleeperLeagueRosters(sleeperLeagueId);
 
         if (!Array.isArray(rosters) || rosters.length === 0) {
           setError("No rosters found for this league.");
@@ -187,7 +182,7 @@ export default function LeaguePage() {
     };
 
     fetchLeagueData();
-  }, [isLoaded, isSignedIn, user, hubLeagueId]);
+  }, [isLoaded, isSignedIn, user, params]);
 
   const { starters, bench } = useMemo(() => {
     if (!myRoster?.players) {
@@ -220,6 +215,7 @@ export default function LeaguePage() {
   }
 
   if (error) {
+    const hubLeagueId = String(params?.hubLeagueId);
     return (
       <div className="p-6 text-red-400">
         <LeagueNav />
@@ -233,6 +229,7 @@ export default function LeaguePage() {
     );
   }
 
+  const hubLeagueId = String(params?.hubLeagueId);
   const selectedPlayer =
     selectedPlayerId != null ? player[selectedPlayerId] ?? null : null;
 
@@ -249,17 +246,6 @@ export default function LeaguePage() {
               Active League
             </span>
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-[#F4D06F]">
-            League {hubLeagueId}
-          </h1>
-          {myRoster && (
-            <p className="mt-1 text-xs md:text-sm text-zinc-400">
-              Roster #{myRoster.roster_id} • Owner ID{" "}
-              <span className="font-mono text-zinc-200">
-                {myRoster.owner_id}
-              </span>
-            </p>
-          )}
         </div>
       </div>
 

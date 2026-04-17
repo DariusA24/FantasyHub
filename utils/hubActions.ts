@@ -25,56 +25,81 @@ const getOwnerUsername = (row: any, hub: any) => {
   } else if (membersFromRow?.user?.username) {
     return membersFromRow.user.username;
   }
-
-  const membersFromHub = hub?.hubLeagueMembers ?? hub?.hubLeagueMember;
-  if (Array.isArray(membersFromHub)) {
-    const ownerMember =
-      membersFromHub.find((m: any) => m.role === "OWNER" || m.isOwner) ??
-      membersFromHub.find((m: any) => m.is_owner);
-    if (ownerMember?.user?.username) return ownerMember.user.username;
-  } else if (membersFromHub?.user?.username) {
-    return membersFromHub.user.username;
-  }
-
   return hub?.owner?.username ?? hub?.ownerUsername ?? null;
 };
 
 export async function fetchHubLeaguesForSleeperLeague(
   sleeperLeagueId: string
 ): Promise<HubLeague[]> {
-  const res = await fetch(
-    `/api/hub-leagues?sleeperLeagueId=${encodeURIComponent(sleeperLeagueId)}`
-  );
-
-  if (!res.ok) {
-    throw new Error(await res.text());
+  let res: Response;
+  try {
+    res = await fetch(
+      `/api/hub-leagues?sleeperLeagueId=${encodeURIComponent(sleeperLeagueId)}`
+    );
+  } catch (e: any) {
+    throw new Error(`Failed to reach /api/hub-leagues: ${e?.message ?? String(e)}`);
   }
 
-  const data = await res.json();
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(body || `HTTP ${res.status} ${res.statusText}`);
+  }
+
+  const data = await res.json().catch((e: any) => {
+    throw new Error(`Invalid JSON from /api/hub-leagues: ${e?.message ?? String(e)}`);
+  });
+
+  // TEMP: log response so you can see real shape
+  if (typeof window !== 'undefined') {
+    console.log('[fetchHubLeaguesForSleeperLeague] raw:', data);
+  }
+
+  const hubLeagueSeasons = Array.isArray(data?.hubLeagueSeasons)
+    ? data.hubLeagueSeasons
+    : Array.isArray(data?.data?.hubLeagueSeasons)
+    ? data.data.hubLeagueSeasons
+    : Array.isArray(data?.rows)
+    ? data.rows
+    : [];
+
+  const hubLeagues = Array.isArray(data?.hubLeagues)
+    ? data.hubLeagues
+    : Array.isArray(data?.data?.hubLeagues)
+    ? data.data.hubLeagues
+    : Array.isArray(data)
+    ? data
+    : [];
 
   let normalized: HubLeague[] = [];
-  if (Array.isArray(data.hubLeagueSeasons)) {
-    normalized = data.hubLeagueSeasons
+
+  if (hubLeagueSeasons.length) {
+    normalized = hubLeagueSeasons
       .map((row: any) => {
-        const hub = row?.hubLeague;
-        if (!hub) return null;
+        const hub = row?.hubLeague ?? row?.hub_league ?? row;
+        if (!hub?.id || !hub?.name) return null;
         return {
           id: String(hub.id),
           name: hub.name,
           description: hub.description ?? null,
-          isMember: !!hub.isMember,
+          isMember: hub.isMember ?? hub.is_member ?? false,
           ownerUsername: getOwnerUsername(row, hub),
         } as HubLeague;
       })
       .filter((h: HubLeague | null): h is HubLeague => !!h);
-  } else if (Array.isArray(data.hubLeagues)) {
-    normalized = data.hubLeagues.map((hub: any) => ({
-      id: String(hub.id),
-      name: hub.name,
-      description: hub.description ?? null,
-      isMember: !!hub.isMember,
-      ownerUsername: getOwnerUsername(null, hub),
-    }));
+  } else if (hubLeagues.length) {
+    normalized = hubLeagues
+      .map((hub: any) => {
+        const obj = hub?.hubLeague ?? hub?.hub_league ?? hub;
+        if (!obj?.id || !obj?.name) return null;
+        return {
+          id: String(obj.id),
+          name: obj.name,
+          description: obj.description ?? null,
+          isMember: obj.isMember ?? obj.is_member ?? false,
+          ownerUsername: getOwnerUsername(null, obj),
+        } as HubLeague;
+      })
+      .filter((h: HubLeague | null): h is HubLeague => !!h);
   }
 
   return normalized;
@@ -83,33 +108,47 @@ export async function fetchHubLeaguesForSleeperLeague(
 export async function createHubLeagueForSleeperLeague(
   league: SleeperLeague
 ): Promise<HubLeague> {
-  const res = await fetch("/api/hub-leagues", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      sleeperLeagueId: league.league_id,
-      sleeperName: league.name,
-      sleeperSport: league.sport,
-      season: league.season,
-      name: league.name,
-      description: `Hub league for Sleeper league ${league.name} (${league.season})`,
-    }),
-  });
-
-  if (!res.ok) {
-    throw new Error((await res.text()) || `HTTP ${res.status} ${res.statusText}`);
+  let res: Response;
+  try {
+    res = await fetch("/api/hub-leagues", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sleeperLeagueId: league.league_id,
+        sleeperName: league.name,
+        sleeperSport: league.sport,
+        season: league.season,
+        name: league.name,
+        description: `Hub league for Sleeper league ${league.name} (${league.season})`,
+      }),
+    });
+  } catch (e: any) {
+    throw new Error(`Failed to reach /api/hub-leagues (POST): ${e?.message ?? String(e)}`);
   }
 
-  const data = await res.json();
-  const created: HubLeague | undefined = data.hubLeague;
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(body || `HTTP ${res.status} ${res.statusText}`);
+  }
+
+  const data = await res.json().catch((e: any) => {
+    throw new Error(`Invalid JSON from /api/hub-leagues (POST): ${e?.message ?? String(e)}`);
+  });
+
+  const created: HubLeague | undefined =
+    data?.hubLeague ?? data?.hub_league ?? data?.data?.hubLeague ?? data?.data?.hub_league;
+
   if (!created) {
     throw new Error("API did not return 'hubLeague' in response");
   }
+
   return created;
 }
 
-export async function joinHubLeague(hubId: string): Promise<void> {
-  const res = await fetch(`/api/hub-leagues/${hubId}/join`, {
+export async function joinHubLeague(hubLeagueId: string): Promise<void> {
+  // If your route folder is /app/hub-leagues/[hubLeagueId]/join/route.ts
+  // then the URL should match that param name, not [id].
+  const res = await fetch(`/api/hub-leagues/${hubLeagueId}/join`, {
     method: "POST",
   });
 

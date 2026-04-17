@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import type { SleeperPlayer } from "@/app/hub-league/[hubLeagueId]/roster/page";
 import { getSleeperPlayersProfilePicture } from "@/utils/sleeperActions";
+import { MaddenStatsContainer } from "../ui/MaddenStats";
 
 // Simple modal for viewing a player's stats
 export function PlayerStatsModal({
@@ -118,6 +119,15 @@ export function PlayerStatsModal({
             display real numbers by season/week.
           </p>
         </div>
+
+        {/* Madden Stats Section */}
+        <p className="text-xs text-zinc-500 uppercase tracking-wide mt-4">
+            Madden Ratings
+          </p>
+          <MaddenStatsContainer
+            sleeperPlayerId={player.player_id}
+          />
+          
       </div>
     </div>
   );

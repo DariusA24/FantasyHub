@@ -12,7 +12,8 @@ type HubLeague = {
 };
 
 export default function HubLeaguePage() {
-  const { hubLeagueId } = useParams<{ hubLeagueId: string }>();
+  const params = useParams();
+  const hubLeagueId = String(params?.hubLeagueId ?? "");
   const router = useRouter();
   const [hubLeague, setHubLeague] = useState<HubLeague | null>(null);
   const [loading, setLoading] = useState(true);

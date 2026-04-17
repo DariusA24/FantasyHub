@@ -20,6 +20,43 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Running tests
+
+Install dependencies (if you haven't already):
+
+```bash
+npm install
+# or
+pnpm install
+# or
+yarn
+```
+
+Then run the test suite:
+
+```bash
+npm test
+# or
+npx jest
+```
+
+To run tests in watch mode (if configured):
+
+```bash
+npm test -- --watch
+```
+
+### Test layout
+
+- **Unit tests** live next to the code they test, e.g.:
+  - `utils/hubActions.ts`
+  - `utils/hubActions.test.ts`
+- If you add higher-level tests, you can put them under a separate folder like:
+  - `tests/integration/...`
+  - `tests/e2e/...`
+
+Jest is configured to pick up `*.test.ts` / `*.test.tsx` files in the project, regardless of whether they are in `utils/`, `app/`, or `tests/`.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
