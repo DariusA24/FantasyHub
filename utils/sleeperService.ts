@@ -42,3 +42,16 @@ export async function getUserLeagues(userId: string, sport: string, season: stri
 export async function getLeagueRosters(leagueId: string) {
   return sleeperRequest<any[]>(`/league/${encodeURIComponent(leagueId)}/rosters`);
 }
+
+export async function getAllNflPlayers(): Promise<Record<string, any>> {
+  // Cache for 24 hours — player metadata (name, position, team) rarely changes mid-day
+  const res = await fetch(`${SLEEPER_BASE_URL}/players/nfl`, {
+    next: { revalidate: 86400 },
+  } as RequestInit);
+
+  if (!res.ok) {
+    throw new Error(`Sleeper API error: ${res.status} ${res.statusText}`);
+  }
+
+  return res.json();
+}

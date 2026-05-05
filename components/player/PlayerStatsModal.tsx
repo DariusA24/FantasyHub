@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import type { SleeperPlayer } from "@/app/hub-league/[hubLeagueId]/roster/page";
 import { getSleeperPlayersProfilePicture } from "@/utils/sleeperActions";
 import { MaddenStatsContainer } from "../ui/MaddenStats";
+import { DynastyRankingContainer } from "../ui/DynastyRanking";
 
 // Simple modal for viewing a player's stats
 export function PlayerStatsModal({
@@ -15,6 +16,7 @@ export function PlayerStatsModal({
 }) {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [loadingAvatar, setLoadingAvatar] = useState(false);
+  const [maddenOpen, setMaddenOpen] = useState(false);
 
   useEffect(() => {
     if (!open || !player?.player_id) {
@@ -120,13 +122,28 @@ export function PlayerStatsModal({
           </p>
         </div>
 
-        {/* Madden Stats Section */}
+        {/*Dynasty Ranking Section*/}
         <p className="text-xs text-zinc-500 uppercase tracking-wide mt-4">
-            Madden Ratings
+            Dynasty Ranking
           </p>
-          <MaddenStatsContainer
+          <DynastyRankingContainer
             sleeperPlayerId={player.player_id}
+            playerName={player.full_name ?? null}
           />
+
+        {/* Madden Stats Section */}
+        <button
+          onClick={() => setMaddenOpen((o) => !o)}
+          className="w-full flex items-center justify-between mt-4 text-xs text-zinc-500 uppercase tracking-wide hover:text-zinc-300 transition-colors"
+        >
+          <span>Madden Ratings</span>
+          <span className="text-zinc-600">{maddenOpen ? '▲' : '▼'}</span>
+        </button>
+        {maddenOpen && (
+          <div className="mt-2">
+            <MaddenStatsContainer sleeperPlayerId={player.player_id} />
+          </div>
+        )}
           
       </div>
     </div>

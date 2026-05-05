@@ -35,6 +35,7 @@ type SleeperLeagues = {
   season: string;
   sport: string;
   avatar: string | null;
+  previous_league_id?: string | null;
 };
 
 function HomePage() {
@@ -51,7 +52,7 @@ function HomePage() {
   const [leagueRecords, setLeagueRecords] = useState<
     Record<string, { wins: number; losses: number; ties: number }>
   >({});
-  const [selectedSeason, setSelectedSeason] = useState<string>("2025");
+  const [selectedSeason, setSelectedSeason] = useState<string>("2026");
   const [selectedLeague, setSelectedLeague] = useState<SleeperLeagues | null>(
     null
   );
@@ -393,6 +394,7 @@ function HomePage() {
                   onChange={(e) => setSelectedSeason(e.target.value)}
                   className="h-8 rounded-full border border-zinc-700 bg-zinc-950/90 px-3 pr-8 text-xs text-zinc-100 shadow-sm outline-none ring-0 transition placeholder:text-zinc-500 focus:border-[#F4D06F]/70 focus:ring-2 focus:ring-[#F4D06F]/50 md:text-sm"
                 >
+                  <option value="2026">2026</option>
                   <option value="2025">2025</option>
                   <option value="2024">2024</option>
                   <option value="2023">2023</option>

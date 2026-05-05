@@ -35,7 +35,7 @@ export function LeagueHubModal({ league, isOpen, onClose }: LeagueHubModalProps)
     const loadHubLeagues = async () => {
       setLoading(true);
       try {
-        const normalized = await fetchHubLeaguesForSleeperLeague(league.league_id);
+        const normalized = await fetchHubLeaguesForSleeperLeague(league.league_id, league.previous_league_id);
         setHubLeagues(normalized);
       } catch (e: any) {
         console.error("Error loading hub leagues:", e);
@@ -187,7 +187,16 @@ export function LeagueHubModal({ league, isOpen, onClose }: LeagueHubModalProps)
                     {hub.isMember ? (
                       <button
                         className="text-xs text-[#F4D06F]"
-                        onClick={() => {
+                        onClick={async () => {
+                          // Silently link the current season to the hub league
+                          // (no-op if already linked; carry-over if new season)
+                          if (league) {
+                            try {
+                              await createHubLeagueForSleeperLeague(league);
+                            } catch {
+                              // Non-fatal — navigate regardless
+                            }
+                          }
                           router.push(`/hub-league/${hub.id}`);
                         }}
                       >

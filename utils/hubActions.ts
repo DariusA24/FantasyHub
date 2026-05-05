@@ -4,6 +4,7 @@ export type SleeperLeague = {
   season: string;
   sport: string;
   avatar: string | null;
+  previous_league_id?: string | null;
 };
 
 export type HubLeague = {
@@ -29,13 +30,14 @@ const getOwnerUsername = (row: any, hub: any) => {
 };
 
 export async function fetchHubLeaguesForSleeperLeague(
-  sleeperLeagueId: string
+  sleeperLeagueId: string,
+  previousLeagueId?: string | null
 ): Promise<HubLeague[]> {
   let res: Response;
   try {
-    res = await fetch(
-      `/api/hub-leagues?sleeperLeagueId=${encodeURIComponent(sleeperLeagueId)}`
-    );
+    const params = new URLSearchParams({ sleeperLeagueId });
+    if (previousLeagueId) params.set('previousLeagueId', previousLeagueId);
+    res = await fetch(`/api/hub-leagues?${params.toString()}`);
   } catch (e: any) {
     throw new Error(`Failed to reach /api/hub-leagues: ${e?.message ?? String(e)}`);
   }
@@ -120,6 +122,7 @@ export async function createHubLeagueForSleeperLeague(
         season: league.season,
         name: league.name,
         description: `Hub league for Sleeper league ${league.name} (${league.season})`,
+        previousLeagueId: league.previous_league_id ?? null,
       }),
     });
   } catch (e: any) {
@@ -143,6 +146,47 @@ export async function createHubLeagueForSleeperLeague(
   }
 
   return created;
+}
+
+export async function linkSeasonToHubLeague(
+  hubLeagueId: string,
+  league: SleeperLeague
+): Promise<HubLeague> {
+  let res: Response;
+  try {
+    res = await fetch("/api/hub-leagues", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        hubLeagueId,
+        sleeperLeagueId: league.league_id,
+        sleeperName: league.name,
+        sleeperSport: league.sport,
+        season: league.season,
+        name: league.name,
+      }),
+    });
+  } catch (e: any) {
+    throw new Error(`Failed to reach /api/hub-leagues (POST): ${e?.message ?? String(e)}`);
+  }
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(body || `HTTP ${res.status} ${res.statusText}`);
+  }
+
+  const data = await res.json().catch((e: any) => {
+    throw new Error(`Invalid JSON from /api/hub-leagues (POST): ${e?.message ?? String(e)}`);
+  });
+
+  const updated: HubLeague | undefined =
+    data?.hubLeague ?? data?.hub_league ?? data?.data?.hubLeague;
+
+  if (!updated) {
+    throw new Error("API did not return 'hubLeague' in response");
+  }
+
+  return updated;
 }
 
 export async function joinHubLeague(hubLeagueId: string): Promise<void> {

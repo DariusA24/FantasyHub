@@ -2,7 +2,7 @@
 
 import { getAuthUser } from './actions';
 import { prisma } from './db';
-import { getSleeperUserByUsername, getSleeperUserById, getUserLeagues, getLeagueRosters } from './sleeperService';
+import { getSleeperUserByUsername, getSleeperUserById, getUserLeagues, getLeagueRosters, getAllNflPlayers } from './sleeperService';
 
 export async function searchSleeperProfile(identifier: string) {
   const trimmed = identifier.trim();
@@ -203,16 +203,33 @@ export async function getSleeperUserRecordForLeague(
 
 export async function getSleeperPlayersByIds(
   ids: string[]
-) {
-  const players = await prisma.sleeperPlayer.findMany({
-    where: { id: { in: ids } },
-  });
-
-  const map: Record<string, typeof players[number]> = {};
-  for (const p of players) {
-    map[p.id] = p;
+): Promise<Record<string, { id: string; full_name: string | null; position: string | null; team: string | null }>> {
+  try {
+    const allPlayers = await getAllNflPlayers();
+    const map: Record<string, any> = {};
+    for (const id of ids) {
+      const p = allPlayers[id];
+      if (p) {
+        map[id] = {
+          id,
+          full_name: p.full_name ?? null,
+          position: p.position ?? null,
+          team: p.team ?? null,
+        };
+      }
+    }
+    return map;
+  } catch (error) {
+    console.error('Sleeper /players/nfl failed, falling back to local DB:', error);
+    const players = await prisma.sleeperPlayer.findMany({
+      where: { id: { in: ids } },
+    });
+    const map: Record<string, any> = {};
+    for (const p of players) {
+      map[p.id] = p;
+    }
+    return map;
   }
-  return map;
 }
 
 export async function getSleeperPlayersProfilePicture(playerId: string): Promise<string | null> {

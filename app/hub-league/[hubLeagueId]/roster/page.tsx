@@ -3,7 +3,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
-import { getSleeperLeagueRosters, getSleeperPlayersByIds } from "@/utils/sleeperActions";
 import { LeagueNav } from "../LeagueNav";
 import { PlayerStatsModal } from "@/components/player/PlayerStatsModal"; 
 
@@ -27,12 +26,6 @@ type UserProfile = {
   sleeperProfileId: string | null;
 };
 
-type HubLeagueSeason = {
-  id: string;
-  hubLeagueId: string;
-  sleeperLeagueId: string;
-  // ...any other fields...
-};
 
 export default function LeaguePage() {
   const params = useParams();
@@ -131,8 +124,17 @@ export default function LeaguePage() {
           return;
         }
 
-        // 3) Use the Sleeper league id from HubLeagueSeason
-        const rosters: SleeperRoster[] = await getSleeperLeagueRosters(sleeperLeagueId);
+        // 3) Fetch live rosters from Sleeper via API route
+        const rostersRes = await fetch(`/api/sleeper/rosters/${encodeURIComponent(sleeperLeagueId)}`);
+        if (!rostersRes.ok) {
+          const txt = await rostersRes.text().catch(() => "");
+          console.error("LeaguePage /api/sleeper/rosters failed:", txt);
+          setError("Failed to load rosters from Sleeper.");
+          setLoading(false);
+          return;
+        }
+
+        const rosters: SleeperRoster[] = await rostersRes.json();
 
         if (!Array.isArray(rosters) || rosters.length === 0) {
           setError("No rosters found for this league.");
@@ -140,34 +142,20 @@ export default function LeaguePage() {
           return;
         }
 
-        let userRoster =
-          rosters.find((r) => r.owner_id === sleeperProfileId) || null;
-
-        if (!userRoster) {
-          console.warn(
-            "[LeaguePage] No roster matched by sleeperProfileId, falling back to first roster."
-          );
-          userRoster = rosters[0];
-        }
-
+        let userRoster = rosters.find((r) => r.owner_id === sleeperProfileId) ?? rosters[0];
         setMyRoster(userRoster);
 
         if (userRoster.players && userRoster.players.length > 0) {
-          const allPlayerIds = userRoster.players;
-          const players = await getSleeperPlayersByIds(allPlayerIds);
-          console.log("[LeaguePage] fetched players data:", players);
-
-          const map: { [key: string]: SleeperPlayer } = {};
-          for (const [playerId, playerData] of Object.entries(players)) {
-            map[playerId] = {
-              player_id: playerId,
-              full_name: (playerData as any).full_name,
-              position:  (playerData as any).position,
-              team:      (playerData as any).team,
-            };
+          const ids = userRoster.players.join(",");
+          const playersRes = await fetch(`/api/sleeper/players?ids=${encodeURIComponent(ids)}`);
+          if (!playersRes.ok) {
+            console.error("LeaguePage /api/sleeper/players failed:", playersRes.status);
+            // Non-fatal: show roster IDs without names
+            setPlayer({});
+          } else {
+            const playersData = await playersRes.json();
+            setPlayer(playersData);
           }
-
-          setPlayer(map);
         } else {
           setPlayer({});
         }
@@ -199,43 +187,45 @@ export default function LeaguePage() {
     return { starters: startersArr, bench: benchArr };
   }, [myRoster]);
 
-  if (loading) {
-    return (
-      <div className="p-6 text-zinc-300">
+  const pageShell = (children: React.ReactNode) => (
+    <div className="min-h-screen bg-gradient-to-br from-[#05060a] via-[#050814] to-[#020308]">
+      <div className="mx-auto max-w-4xl px-4 pb-24 pt-6 text-zinc-200">
         <LeagueNav />
-        <div className="mt-6 rounded-2xl border border-[#1d212b] bg-[#050609]/80 p-6">
-          <div className="h-4 w-32 rounded bg-zinc-800 animate-pulse mb-4" />
-          <div className="space-y-2">
-            <div className="h-3 w-full rounded bg-zinc-800/80 animate-pulse" />
-            <div className="h-3 w-2/3 rounded bg-zinc-800/60 animate-pulse" />
-          </div>
+        {children}
+      </div>
+    </div>
+  );
+
+  if (loading) {
+    return pageShell(
+      <div className="mt-6 rounded-2xl border border-[#1d212b] bg-[#050609]/80 p-6">
+        <div className="h-4 w-32 rounded bg-zinc-800 animate-pulse mb-4" />
+        <div className="space-y-2">
+          <div className="h-3 w-full rounded bg-zinc-800/80 animate-pulse" />
+          <div className="h-3 w-2/3 rounded bg-zinc-800/60 animate-pulse" />
         </div>
       </div>
     );
   }
 
   if (error) {
-    const hubLeagueId = String(params?.hubLeagueId);
-    return (
-      <div className="p-6 text-red-400">
-        <LeagueNav />
-        <div className="mt-4 rounded-2xl border border-red-900/60 bg-red-950/40 p-5">
-          <h1 className="text-xl font-semibold mb-2 text-[#F4D06F]">
-            League {hubLeagueId}
-          </h1>
-          <p className="text-sm">{error}</p>
-        </div>
+    return pageShell(
+      <div className="mt-4 rounded-2xl border border-red-900/60 bg-red-950/30 p-5">
+        <p className="text-red-400 mb-3">{error}</p>
+        <button className="text-sm text-[#F4D06F] hover:underline" onClick={() => window.history.back()}>
+          ← Go back
+        </button>
       </div>
     );
   }
 
-  const hubLeagueId = String(params?.hubLeagueId);
   const selectedPlayer =
     selectedPlayerId != null ? player[selectedPlayerId] ?? null : null;
 
   return (
-    <div className="p-6 text-zinc-200">
-      <LeagueNav />
+    <div className="min-h-screen bg-gradient-to-br from-[#05060a] via-[#050814] to-[#020308]">
+      <div className="mx-auto max-w-4xl px-4 pb-24 pt-6 text-zinc-200">
+        <LeagueNav />
 
       {/* Header */}
       <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -370,6 +360,7 @@ export default function LeaguePage() {
           setSelectedPlayerId(null);
         }}
       />
+      </div>
     </div>
   );
 }

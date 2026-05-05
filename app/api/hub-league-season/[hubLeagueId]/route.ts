@@ -29,7 +29,7 @@ export async function GET(
     // If each hub league has only one active season:
     const hubLeagueSeason = await prisma.hubLeagueSeason.findFirst({
       where: { hubLeagueId },
-      orderBy: { createdAt: "desc" }, // adjust if you have such a field
+      orderBy: { season: "desc" }, // latest season year first
     });
 
     if (!hubLeagueSeason) {

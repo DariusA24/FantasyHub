@@ -7,6 +7,7 @@ type SleeperLeague = {
   season: string;
   sport: string;
   avatar: string | null;
+  previous_league_id?: string | null;
   total_rosters?: number;
   status?: string;
 };

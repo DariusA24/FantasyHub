@@ -44,15 +44,35 @@ export async function GET(
       );
     }
 
-    // Load hub league with owner + members (new relation)
+    // Load hub league with owner + members + seasons
     const hubLeague = await prisma.hubLeague.findUnique({
       where: { id: hubLeagueId },
       include: {
-        members: {
+        owner: {
           select: {
-            profileId: true,
-            role: true,
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            profileImage: true,
           },
+        },
+        seasons: {
+          orderBy: { season: "desc" },
+        },
+        members: {
+          include: {
+            profile: {
+              select: {
+                id: true,
+                username: true,
+                firstName: true,
+                lastName: true,
+                profileImage: true,
+              },
+            },
+          },
+          orderBy: { createdAt: "asc" },
         },
       },
     });
