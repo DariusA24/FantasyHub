@@ -1,0 +1,97 @@
+'use client';
+import Link from 'next/link';
+// import { useUser } from '@clerk/nextjs';
+import { useAuth } from '@clerk/nextjs';
+import { DarkMode } from './DarkMode';
+import LinkDropDown from './LinkDropDown';
+import { FiHome, FiStar, FiHelpCircle, FiLogIn, FiInfo, FiGrid } from 'react-icons/fi'; // added FiGrid
+
+function NavBar() {
+  // const { isSignedIn } = useUser();
+  const { isSignedIn } = useAuth();
+
+  return (
+    <nav className="sticky top-0 z-40">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2 text-sm font-medium">
+        <div className="flex items-center justify-between h-14 sm:h-16 rounded-2xl border border-amber-100/10 bg-gradient-to-r from-neutral-900/70 via-neutral-900/40 to-neutral-900/70 backdrop-blur-xl shadow-lg shadow-black/20 px-3 sm:px-4 md:px-6">
+          {/* Left: Logo */}
+          <div className="flex items-center gap-3">
+            <Link href="/" className="flex items-center gap-2 flex-shrink-0">
+              <span className="text-md sm:text-2xl font-extrabold tracking-tight font-[var(--font-display)] bg-gradient-to-r from-amber-400 via-amber-100 to-yellow-50 bg-clip-text text-transparent">
+                FantasyHub
+              </span>
+              <span className="hidden sm:inline-block text-[10px] uppercase tracking-[0.2em] text-amber-100/60">
+                Fantasy Drafts, Refined
+              </span>
+            </Link>
+          </div>
+
+          {/* Right: Conditional Layout */}
+          {isSignedIn ? (
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Link
+                href="/"
+                className="inline-flex items-center gap-1.5 rounded-full px-3 sm:px-4 py-1.5 text-[11px] sm:text-xs font-medium text-amber-50/80 hover:text-amber-50 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/40 transition-all duration-150"
+              >
+                <FiHome className="h-3.5 w-3.5" />
+                <span className="tracking-[0.18em]">HOME</span>
+              </Link>
+              <Link
+                href="/manager" // go directly to your manager route
+                className="inline-flex items-center gap-1.5 rounded-full px-3 sm:px-4 py-1.5 text-[11px] sm:text-xs font-medium text-amber-50/80 hover:text-amber-50 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/40 transition-all duration-150"
+              >
+                <FiGrid className="h-3.5 w-3.5" />
+                <span className="tracking-[0.18em]">MANAGER</span>
+              </Link>
+              <Link
+                href="/about"
+                className="inline-flex items-center gap-1.5 rounded-full px-3 sm:px-4 py-1.5 text-[11px] sm:text-xs font-medium text-amber-50/80 hover:text-amber-50 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/40 transition-all duration-150"
+              >
+                <FiInfo className="h-3.5 w-3.5" />
+                <span className="tracking-[0.18em]">ABOUT</span>
+              </Link>
+              {/* Dark mode + profile */}
+              <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-3 border-l border-amber-100/10">
+                <DarkMode />
+                <LinkDropDown />
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Link
+                href="/"
+                className="inline-flex items-center gap-1.5 rounded-full px-3 sm:px-4 py-1.5 text-[11px] sm:text-xs font-medium text-amber-50/80 hover:text-amber-50 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/40 transition-all duration-150"
+              >
+                <FiHome className="h-3.5 w-3.5" />
+                <span className="tracking-[0.18em]">HOME</span>
+              </Link>
+              <Link
+                href="/featured"
+                className="hidden sm:inline-flex items-center gap-1.5 rounded-full px-3 sm:px-4 py-1.5 text-[11px] sm:text-xs font-medium text-amber-50/80 hover:text-amber-50 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/40 transition-all duration-150"
+              >
+                <FiStar className="h-3.5 w-3.5" />
+                <span className="tracking-[0.18em]">FEATURED</span>
+              </Link>
+              <Link
+                href="/works"
+                className="hidden md:inline-flex items-center gap-1.5 rounded-full px-3 sm:px-4 py-1.5 text-[11px] sm:text-xs font-medium text-amber-50/80 hover:text-amber-50 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/40 transition-all duration-150"
+              >
+                <FiHelpCircle className="h-3.5 w-3.5" />
+                <span className="tracking-[0.18em]">HOW IT WORKS</span>
+              </Link>
+              <Link
+                href="/login"
+                className="inline-flex items-center gap-1.5 rounded-full px-3 sm:px-4 py-1.5 text-[11px] sm:text-xs font-semibold tracking-[0.18em] text-neutral-950 bg-amber-400 hover:bg-amber-300 active:bg-amber-500 shadow-md shadow-amber-500/30 transition-all duration-150"
+              >
+                <FiLogIn className="h-3.5 w-3.5" />
+                <span>LOG IN</span>
+              </Link>
+            </div>
+          )}
+        </div>
+      </div>
+    </nav>
+  );
+}
+
+export default NavBar;

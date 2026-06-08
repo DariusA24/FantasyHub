@@ -1,0 +1,114 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Profile {
+  id               Int               @id @default(autoincrement())
+  clerkId          String            @unique
+  firstName        String
+  lastName         String
+  username         String
+  email            String
+  profileImage     String
+  updatedAt        DateTime          @updatedAt
+  sleeperProfileId String?
+  sleeperProfile   sleeperProfile?
+  hubLeagues       HubLeague[]
+  // NEW: hub league memberships (invited/allowed leagues)
+  hubLeagueMemberships HubLeagueMember[] @relation("ProfileMemberships")
+}
+
+model sleeperProfile {
+  id          Int      @id @default(autoincrement())
+  sleeperId   String   @unique
+  displayName String
+  avatar      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  profileId   Int      @unique
+  profile     Profile  @relation(fields: [profileId], references: [id])
+}
+
+model SleeperPlayer {
+  id        String   @id // sleeper player_id
+  full_name String?
+  position  String?
+  team      String?
+  rawJson   Json     // store entire Sleeper payload if you want
+  updatedAt DateTime @updatedAt
+  maddenStats  maddenPlayer[]
+}
+
+model HubLeague {
+  id          String            @id @default(cuid())
+  name        String
+  description String?
+  ownerId     Int
+  owner       Profile           @relation(fields: [ownerId], references: [id])
+  seasons     HubLeagueSeason[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  // NEW: members invited/allowed to this hub league
+  members     HubLeagueMember[] @relation("LeagueMembers")
+}
+
+model HubLeagueSeason {
+  id              String    @id @default(cuid())
+  hubLeagueId     String
+  hubLeague       HubLeague @relation(fields: [hubLeagueId], references: [id])
+  sleeperLeagueId String
+  season          String
+  sleeperName     String?
+  sleeperSport    String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([sleeperLeagueId])
+  @@index([hubLeagueId, season])
+}
+
+// NEW: join table between HubLeague and Profile to represent membership
+model HubLeagueMember {
+  id          Int       @id @default(autoincrement())
+  hubLeagueId String
+  profileId   Int
+
+  hubLeague   HubLeague @relation("LeagueMembers", fields: [hubLeagueId], references: [id])
+  profile     Profile   @relation("ProfileMemberships", fields: [profileId], references: [id])
+
+  role        String    @default("member") // e.g. "member", "co-owner", etc.
+  createdAt   DateTime  @default(now())
+
+  @@unique([hubLeagueId, profileId])
+  @@index([profileId])
+}
+
+model maddenPlayer {
+  id           String   @map("id")
+  full_name    String?
+  position     String?
+  team         String?
+  year         Int
+  week         Int
+  overall      Int?
+  shared_stats Json?    @default("{}")
+  qb_stats     Json?    @default("{}")
+  wr_stats     Json?    @default("{}")
+  te_stats     Json?    @default("{}")
+  rb_stats     Json?    @default("{}")
+  k_stats      Json?    @default("{}")
+  created_at   DateTime? @default(now()) @db.Timestamptz
+
+  sleeperPlayer SleeperPlayer @relation(fields: [id], references: [id])
+
+  @@id([id, year, week])
+  @@index([id])
+  @@map("maddenPlayer")
+}
+
+
