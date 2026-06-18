@@ -7,6 +7,7 @@ import {
   getSleeperLeagues,
   getSleeperLeagueAvatarThumbnail,
   getSleeperLeagueRosters,
+  getSleeperLeagueSettings,
   getSleeperUserRecordForLeague,
   getSleeperPlayersByIds,
   getSleeperPlayersProfilePicture,
@@ -33,6 +34,7 @@ jest.mock('./sleeperService', () => ({
   getSleeperUserByUsername: jest.fn(),
   getSleeperUserById: jest.fn(),
   getUserLeagues: jest.fn(),
+  getLeague: jest.fn(),
   getLeagueRosters: jest.fn(),
 }));
 
@@ -42,11 +44,13 @@ const {
   getSleeperUserByUsername,
   getSleeperUserById,
   getUserLeagues,
+  getLeague,
   getLeagueRosters,
 } = require('./sleeperService') as {
   getSleeperUserByUsername: jest.MockedFunction<any>;
   getSleeperUserById: jest.MockedFunction<any>;
   getUserLeagues: jest.MockedFunction<any>;
+  getLeague: jest.MockedFunction<any>;
   getLeagueRosters: jest.MockedFunction<any>;
 };
 
@@ -166,5 +170,38 @@ describe('sleeperActions.getLinkedSleeperProfileForUser', () => {
 
     expect(getSleeperUserById).toHaveBeenCalledWith('s1');
     expect(res).toEqual({ user_id: 's1' });
+  });
+});
+
+describe('sleeperActions.getSleeperLeagueSettings', () => {
+  const mockLeague = {
+    league_id: '123',
+    name: 'Test League',
+    settings: { num_teams: 12, type: 0 },
+    scoring_settings: { rec: 1, pass_td: 4, rush_td: 6 },
+    roster_positions: ['QB', 'RB', 'WR', 'TE', 'FLEX', 'BN'],
+  };
+
+  it('returns league data from getLeague', async () => {
+    (getLeague as jest.MockedFunction<any>).mockResolvedValue(mockLeague);
+
+    const result = await getSleeperLeagueSettings('123');
+
+    expect(getLeague).toHaveBeenCalledWith('123');
+    expect(result).toEqual(mockLeague);
+  });
+
+  it('throws with error message when getLeague rejects with an Error', async () => {
+    (getLeague as jest.MockedFunction<any>).mockRejectedValue(new Error('Sleeper API error: 404'));
+
+    await expect(getSleeperLeagueSettings('bad-id')).rejects.toThrow('Sleeper API error: 404');
+  });
+
+  it('throws generic message when getLeague rejects with non-Error', async () => {
+    (getLeague as jest.MockedFunction<any>).mockRejectedValue('network failure');
+
+    await expect(getSleeperLeagueSettings('bad-id')).rejects.toThrow(
+      'Failed to fetch Sleeper league settings.'
+    );
   });
 });

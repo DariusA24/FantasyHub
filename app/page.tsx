@@ -17,6 +17,7 @@ import StatsRow from "@/components/ui/StatRow";
 import Image from "next/image";
 import { LeagueHubModal } from "@/components/ui/LeagueHubModal";
 import { useRouter } from "next/navigation";
+import { FiArrowRight } from "react-icons/fi";
 
 type UserProfile = {
   id: number;
@@ -58,6 +59,7 @@ function HomePage() {
   );
   const [isLeagueModalOpen, setIsLeagueModalOpen] = useState(false);
   const [isLeaguesLoading, setIsLeaguesLoading] = useState(false);
+  const [recentHubLeague, setRecentHubLeague] = useState<{ id: string; name: string } | null>(null);
 
   const loadProfile = useCallback(async () => {
     try {
@@ -258,6 +260,13 @@ function HomePage() {
     console.log("useEffect triggered. showModal:", showModal);
   }, [showModal]);
 
+  useEffect(() => {
+    const raw = localStorage.getItem("recentHubLeague");
+    if (raw) {
+      try { setRecentHubLeague(JSON.parse(raw)); } catch {}
+    }
+  }, []);
+
   if (!isLoaded) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-[#05060a] via-[#050814] to-[#020308]">
@@ -357,6 +366,28 @@ function HomePage() {
             </div>
           )}
         </div>
+
+        {/* Recent hub league */}
+        {recentHubLeague && (
+          <div>
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-zinc-500">Recent League</p>
+            <button
+              onClick={() => router.push(`/hub-league/${recentHubLeague.id}`)}
+              className="group flex w-full items-center justify-between rounded-2xl border border-zinc-800/60 bg-zinc-950/70 px-5 py-4 text-left shadow-[0_8px_30px_rgba(0,0,0,0.4)] transition hover:border-[#F4D06F]/30 hover:bg-zinc-900/60"
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F4D06F]/10 text-xl">
+                  🏆
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-zinc-100 group-hover:text-white">{recentHubLeague.name}</p>
+                  <p className="text-[11px] text-zinc-500">Hub League · Last visited</p>
+                </div>
+              </div>
+              <FiArrowRight className="h-4 w-4 text-zinc-600 group-hover:text-[#F4D06F] transition-colors" />
+            </button>
+          </div>
+        )}
 
         {/* Stats row card */}
         <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/70 p-4 shadow-[0_18px_45px_rgba(0,0,0,0.75)] backdrop-blur">

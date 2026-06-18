@@ -39,6 +39,10 @@ export async function getUserLeagues(userId: string, sport: string, season: stri
   return sleeperRequest<any[]>(`/user/${encodeURIComponent(userId)}/leagues/${sport}/${season}`);
 }
 
+export async function getLeague(leagueId: string) {
+  return sleeperRequest<any>(`/league/${encodeURIComponent(leagueId)}`);
+}
+
 export async function getLeagueRosters(leagueId: string) {
   return sleeperRequest<any[]>(`/league/${encodeURIComponent(leagueId)}/rosters`);
 }

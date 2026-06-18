@@ -16,15 +16,16 @@ type FantasyCalcEntry = {
   trend30Day: number;
 };
 
-// Module-level cache — persists for the lifetime of the browser session
-let clientCache: Record<string, FantasyCalcEntry | null> | null = null;
-let clientCachePromise: Promise<Record<string, FantasyCalcEntry | null>> | null = null;
+// Module-level cache keyed by numQbs — persists for the lifetime of the browser session
+const clientCache: Record<string, Record<string, FantasyCalcEntry | null>> = {};
+const clientCachePromise: Record<string, Promise<Record<string, FantasyCalcEntry | null>>> = {};
 
-async function loadDynastyValues(): Promise<Record<string, FantasyCalcEntry | null>> {
-  if (clientCache) return clientCache;
-  if (clientCachePromise) return clientCachePromise;
+async function loadDynastyValues(numQbs: 1 | 2): Promise<Record<string, FantasyCalcEntry | null>> {
+  const key = String(numQbs);
+  if (clientCache[key]) return clientCache[key];
+  if (clientCachePromise[key]) return clientCachePromise[key];
 
-  clientCachePromise = fetch('/api/dynasty-rankings/all')
+  clientCachePromise[key] = fetch(`/api/dynasty-rankings/all?numQbs=${numQbs}`)
     .then((res) => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.json();
@@ -36,16 +37,17 @@ async function loadDynastyValues(): Promise<Record<string, FantasyCalcEntry | nu
           map[entry.player.sleeperId] = entry;
         }
       }
-      clientCache = map;
+      clientCache[key] = map;
       return map;
     });
 
-  return clientCachePromise;
+  return clientCachePromise[key];
 }
 
 type DynastyRankingContainerProps = {
   sleeperPlayerId: string | null;
   playerName?: string | null;
+  isSuperFlex?: boolean;
 };
 
 const TIER_STYLE: Record<number, string> = {
@@ -57,7 +59,9 @@ const TIER_STYLE: Record<number, string> = {
 
 export const DynastyRankingContainer: React.FC<DynastyRankingContainerProps> = ({
   sleeperPlayerId,
+  isSuperFlex = false,
 }) => {
+  const numQbs: 1 | 2 = isSuperFlex ? 2 : 1;
   const [entry, setEntry] = React.useState<FantasyCalcEntry | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -72,7 +76,7 @@ export const DynastyRankingContainer: React.FC<DynastyRankingContainerProps> = (
     setLoading(true);
     setError(null);
 
-    loadDynastyValues()
+    loadDynastyValues(numQbs)
       .then((map) => {
         if (!cancelled) setEntry(map[sleeperPlayerId] ?? null);
       })
@@ -86,7 +90,7 @@ export const DynastyRankingContainer: React.FC<DynastyRankingContainerProps> = (
       });
 
     return () => { cancelled = true; };
-  }, [sleeperPlayerId]);
+  }, [sleeperPlayerId, numQbs]);
 
   if (!sleeperPlayerId) return null;
 

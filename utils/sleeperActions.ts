@@ -2,7 +2,7 @@
 
 import { getAuthUser } from './actions';
 import { prisma } from './db';
-import { getSleeperUserByUsername, getSleeperUserById, getUserLeagues, getLeagueRosters, getAllNflPlayers } from './sleeperService';
+import { getSleeperUserByUsername, getSleeperUserById, getUserLeagues, getLeague, getLeagueRosters, getAllNflPlayers } from './sleeperService';
 
 export async function searchSleeperProfile(identifier: string) {
   const trimmed = identifier.trim();
@@ -153,6 +153,16 @@ export async function getSleeperLeagueAvatarThumbnail(photo: string): Promise<st
   } catch (error) {
     console.error('Error fetching Sleeper league avatar thumbnail:', error);
     return null;
+  }
+}
+
+export async function getSleeperLeagueSettings(leagueId: string) {
+  try {
+    return await getLeague(leagueId);
+  } catch (error) {
+    throw new Error(
+      error instanceof Error ? error.message : 'Failed to fetch Sleeper league settings.'
+    );
   }
 }
 

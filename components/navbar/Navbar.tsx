@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { useAuth } from '@clerk/nextjs';
 import { DarkMode } from './DarkMode';
 import LinkDropDown from './LinkDropDown';
-import { FiHome, FiStar, FiHelpCircle, FiLogIn, FiInfo, FiGrid } from 'react-icons/fi'; // added FiGrid
+import { FiHome, FiStar, FiHelpCircle, FiLogIn, FiInfo, FiGrid } from 'react-icons/fi';
+import ToolsDropdown from './ToolsDropdown';
 
 function NavBar() {
   // const { isSignedIn } = useUser();
@@ -37,11 +38,11 @@ function NavBar() {
                 <span className="tracking-[0.18em]">HOME</span>
               </Link>
               <Link
-                href="/manager" // go directly to your manager route
+                href="/manager" // go directly to your gm route
                 className="inline-flex items-center gap-1.5 rounded-full px-3 sm:px-4 py-1.5 text-[11px] sm:text-xs font-medium text-amber-50/80 hover:text-amber-50 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/40 transition-all duration-150"
               >
                 <FiGrid className="h-3.5 w-3.5" />
-                <span className="tracking-[0.18em]">MANAGER</span>
+                <span className="tracking-[0.18em]">PROFILE</span>
               </Link>
               <Link
                 href="/about"
@@ -50,6 +51,7 @@ function NavBar() {
                 <FiInfo className="h-3.5 w-3.5" />
                 <span className="tracking-[0.18em]">ABOUT</span>
               </Link>
+              <ToolsDropdown />
               {/* Dark mode + profile */}
               <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-3 border-l border-amber-100/10">
                 <DarkMode />

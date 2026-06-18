@@ -9,10 +9,12 @@ export function PlayerStatsModal({
   open,
   player,
   onClose,
+  isSuperFlex = false,
 }: {
   open: boolean;
   player: SleeperPlayer | null;
   onClose: () => void;
+  isSuperFlex?: boolean;
 }) {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [loadingAvatar, setLoadingAvatar] = useState(false);
@@ -129,6 +131,7 @@ export function PlayerStatsModal({
           <DynastyRankingContainer
             sleeperPlayerId={player.player_id}
             playerName={player.full_name ?? null}
+            isSuperFlex={isSuperFlex}
           />
 
         {/* Madden Stats Section */}

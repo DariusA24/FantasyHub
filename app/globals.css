@@ -124,3 +124,35 @@ html, body {
     @apply bg-background text-foreground;
   }
 }
+
+@layer components {
+  /* ─── Hub league page shell ─── */
+  .hub-page {
+    @apply min-h-screen bg-gray-50 dark:bg-[#05060a];
+  }
+
+  /* ─── Section cards ─── */
+  .hub-card {
+    @apply rounded-2xl border border-gray-200 bg-white dark:border-zinc-800/60 dark:bg-[#0a0c14];
+  }
+
+  /* ─── Inner list items / sub-cards ─── */
+  .hub-inner-card {
+    @apply border border-gray-200 bg-gray-50 dark:border-zinc-800/50 dark:bg-zinc-900/40;
+  }
+
+  /* ─── Primary text ─── */
+  .hub-text-primary {
+    @apply text-gray-900 dark:text-zinc-100;
+  }
+
+  /* ─── Secondary text ─── */
+  .hub-text-secondary {
+    @apply text-gray-500 dark:text-zinc-400;
+  }
+
+  /* ─── Muted text ─── */
+  .hub-text-muted {
+    @apply text-gray-400 dark:text-zinc-500;
+  }
+}

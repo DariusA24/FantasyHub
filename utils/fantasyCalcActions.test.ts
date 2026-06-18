@@ -3,6 +3,8 @@ import {
   fetchAdpRankings,
   fetchAdpForPosition,
   fetchAdpForPlayer,
+  sleeperSettingsToFFCalcFormat,
+  fetchAdpRankingsForLeague,
 } from './fantasyCalcActions';
 
 jest.mock('./fantasyCalcService', () => ({
@@ -10,7 +12,12 @@ jest.mock('./fantasyCalcService', () => ({
   getAdpByPosition: jest.fn(),
 }));
 
+jest.mock('./sleeperActions', () => ({
+  getSleeperLeagueSettings: jest.fn(),
+}));
+
 const { getAdpRankings, getAdpByPosition } = require('./fantasyCalcService');
+const { getSleeperLeagueSettings } = require('./sleeperActions');
 
 const mockPlayer = (overrides: Partial<{
   player_id: number;
@@ -181,6 +188,190 @@ describe('fantasyCalcActions.fetchAdpForPlayer', () => {
     expect(result).toBeNull();
     expect(consoleSpy).toHaveBeenCalledWith(
       'Error fetching ADP for player Mahomes:',
+      expect.any(Error)
+    );
+    consoleSpy.mockRestore();
+  });
+});
+
+describe('fantasyCalcActions.sleeperSettingsToFFCalcFormat', () => {
+  it('returns "dynasty" when settings.type === 2', () => {
+    const leagueData = { settings: { type: 2 } };
+    expect(sleeperSettingsToFFCalcFormat(leagueData)).toBe('dynasty');
+  });
+
+  it('returns "2qb" when roster_positions includes SUPER_FLEX', () => {
+    const leagueData = {
+      settings: { type: 0 },
+      roster_positions: ['QB', 'SUPER_FLEX', 'WR', 'RB', 'TE', 'FLEX', 'BN'],
+      scoring_settings: { rec: 1 },
+    };
+    expect(sleeperSettingsToFFCalcFormat(leagueData)).toBe('2qb');
+  });
+
+  it('returns "ppr" when rec >= 1 and no dynasty/2qb signals', () => {
+    const leagueData = {
+      settings: { type: 0 },
+      roster_positions: ['QB', 'WR', 'RB', 'TE', 'FLEX', 'BN'],
+      scoring_settings: { rec: 1 },
+    };
+    expect(sleeperSettingsToFFCalcFormat(leagueData)).toBe('ppr');
+  });
+
+  it('returns "ppr" when rec is greater than 1', () => {
+    const leagueData = {
+      settings: { type: 0 },
+      roster_positions: ['QB', 'WR', 'RB', 'TE', 'BN'],
+      scoring_settings: { rec: 1.5 },
+    };
+    expect(sleeperSettingsToFFCalcFormat(leagueData)).toBe('ppr');
+  });
+
+  it('returns "half-ppr" when rec === 0.5', () => {
+    const leagueData = {
+      settings: { type: 0 },
+      roster_positions: ['QB', 'WR', 'RB', 'TE', 'FLEX', 'BN'],
+      scoring_settings: { rec: 0.5 },
+    };
+    expect(sleeperSettingsToFFCalcFormat(leagueData)).toBe('half-ppr');
+  });
+
+  it('returns "standard" when rec === 0', () => {
+    const leagueData = {
+      settings: { type: 0 },
+      roster_positions: ['QB', 'WR', 'RB', 'TE', 'FLEX', 'BN'],
+      scoring_settings: { rec: 0 },
+    };
+    expect(sleeperSettingsToFFCalcFormat(leagueData)).toBe('standard');
+  });
+
+  it('returns "standard" when scoring_settings is missing', () => {
+    const leagueData = {
+      settings: { type: 0 },
+      roster_positions: ['QB', 'WR', 'RB', 'TE', 'BN'],
+    };
+    expect(sleeperSettingsToFFCalcFormat(leagueData)).toBe('standard');
+  });
+
+  it('returns "standard" when input is null', () => {
+    expect(sleeperSettingsToFFCalcFormat(null)).toBe('standard');
+  });
+
+  it('returns "standard" when input is undefined', () => {
+    expect(sleeperSettingsToFFCalcFormat(undefined)).toBe('standard');
+  });
+
+  it('dynasty check takes priority over SUPER_FLEX', () => {
+    const leagueData = {
+      settings: { type: 2 },
+      roster_positions: ['QB', 'SUPER_FLEX', 'WR', 'RB', 'TE', 'BN'],
+      scoring_settings: { rec: 1 },
+    };
+    expect(sleeperSettingsToFFCalcFormat(leagueData)).toBe('dynasty');
+  });
+
+  it('SUPER_FLEX check takes priority over rec scoring', () => {
+    const leagueData = {
+      settings: { type: 0 },
+      roster_positions: ['QB', 'SUPER_FLEX', 'WR', 'RB', 'TE', 'BN'],
+      scoring_settings: { rec: 0 },
+    };
+    expect(sleeperSettingsToFFCalcFormat(leagueData)).toBe('2qb');
+  });
+});
+
+describe('fantasyCalcActions.fetchAdpRankingsForLeague', () => {
+  it('returns format, teams, and data derived from league settings', async () => {
+    const leagueData = {
+      settings: { type: 0, num_teams: 10 },
+      roster_positions: ['QB', 'WR', 'RB', 'TE', 'FLEX', 'BN'],
+      scoring_settings: { rec: 1 },
+    };
+    (getSleeperLeagueSettings as jest.MockedFunction<any>).mockResolvedValue(leagueData);
+    (getAdpRankings as jest.MockedFunction<any>).mockResolvedValue(mockAdpResponse);
+
+    const result = await fetchAdpRankingsForLeague('league-123');
+
+    expect(getSleeperLeagueSettings).toHaveBeenCalledWith('league-123');
+    expect(getAdpRankings).toHaveBeenCalledWith({ format: 'ppr', teams: 10 });
+    expect(result).toEqual({ format: 'ppr', teams: 10, data: mockAdpResponse });
+  });
+
+  it('falls back to 12 teams when num_teams is missing', async () => {
+    const leagueData = {
+      settings: { type: 0 },
+      roster_positions: ['QB', 'WR', 'RB', 'TE', 'FLEX', 'BN'],
+      scoring_settings: { rec: 0.5 },
+    };
+    (getSleeperLeagueSettings as jest.MockedFunction<any>).mockResolvedValue(leagueData);
+    (getAdpRankings as jest.MockedFunction<any>).mockResolvedValue(mockAdpResponse);
+
+    const result = await fetchAdpRankingsForLeague('league-456');
+
+    expect(getAdpRankings).toHaveBeenCalledWith({ format: 'half-ppr', teams: 12 });
+    expect(result).toEqual({ format: 'half-ppr', teams: 12, data: mockAdpResponse });
+  });
+
+  it('merges extra params into the getAdpRankings call', async () => {
+    const leagueData = {
+      settings: { type: 0, num_teams: 8 },
+      roster_positions: ['QB', 'WR', 'RB', 'TE', 'BN'],
+      scoring_settings: { rec: 0 },
+    };
+    (getSleeperLeagueSettings as jest.MockedFunction<any>).mockResolvedValue(leagueData);
+    (getAdpRankings as jest.MockedFunction<any>).mockResolvedValue(mockAdpResponse);
+
+    const result = await fetchAdpRankingsForLeague('league-789', { year: 2024, count: 50 });
+
+    expect(getAdpRankings).toHaveBeenCalledWith({ format: 'standard', teams: 8, year: 2024, count: 50 });
+    expect(result).toEqual({ format: 'standard', teams: 8, data: mockAdpResponse });
+  });
+
+  it('derives dynasty format from league settings', async () => {
+    const leagueData = {
+      settings: { type: 2, num_teams: 12 },
+      roster_positions: ['QB', 'WR', 'RB', 'TE', 'BN'],
+      scoring_settings: { rec: 1 },
+    };
+    (getSleeperLeagueSettings as jest.MockedFunction<any>).mockResolvedValue(leagueData);
+    (getAdpRankings as jest.MockedFunction<any>).mockResolvedValue(mockAdpResponse);
+
+    const result = await fetchAdpRankingsForLeague('league-dynasty');
+
+    expect(result).toEqual({ format: 'dynasty', teams: 12, data: mockAdpResponse });
+  });
+
+  it('returns null and logs error when getSleeperLeagueSettings throws', async () => {
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    (getSleeperLeagueSettings as jest.MockedFunction<any>).mockRejectedValue(new Error('not found'));
+
+    const result = await fetchAdpRankingsForLeague('bad-league');
+
+    expect(result).toBeNull();
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Error fetching ADP for Sleeper league:',
+      'bad-league',
+      expect.any(Error)
+    );
+    consoleSpy.mockRestore();
+  });
+
+  it('returns null and logs error when getAdpRankings throws', async () => {
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const leagueData = {
+      settings: { type: 0, num_teams: 12 },
+      roster_positions: ['QB', 'WR', 'RB', 'TE', 'BN'],
+      scoring_settings: { rec: 1 },
+    };
+    (getSleeperLeagueSettings as jest.MockedFunction<any>).mockResolvedValue(leagueData);
+    (getAdpRankings as jest.MockedFunction<any>).mockRejectedValue(new Error('API down'));
+
+    const result = await fetchAdpRankingsForLeague('league-err');
+
+    expect(result).toBeNull();
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Error fetching ADP for Sleeper league:',
+      'league-err',
       expect.any(Error)
     );
     consoleSpy.mockRestore();
