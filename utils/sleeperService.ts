@@ -1,61 +1,57 @@
 const SLEEPER_BASE_URL = 'https://api.sleeper.app/v1';
 
-async function sleeperRequest<T>(path: string, init?: RequestInit): Promise<T> {
+// Revalidation windows (seconds)
+const TTL = {
+  user: 3600,       // 1 hour — display names rarely change
+  leagues: 3600,    // 1 hour — league membership doesn't change mid-season
+  rosters: 1800,    // 30 min — W-L records update after each game week
+  players: 86400,   // 24 hours — player metadata (name/position/team)
+} as const;
+
+async function sleeperRequest<T>(path: string, revalidate: number): Promise<T> {
   const res = await fetch(`${SLEEPER_BASE_URL}${path}`, {
-    // You can tweak caching/next options here if needed
-    // cache: 'no-store',
-    ...init,
-  });
-
-  if (!res.ok) {
-    // Optionally log more details here
-    throw new Error(`Sleeper API error: ${res.status} ${res.statusText}`);
-  }
-
-  return res.json() as Promise<T>;
-}
-
-/**
- * Get a Sleeper user by username.
- * Docs: https://docs.sleeper.com/#user-get-user-by-username
- */
-export async function getSleeperUserByUsername(username: string) {
-  if (!username.trim()) throw new Error('Username required');
-  return sleeperRequest<any>(`/user/${encodeURIComponent(username.trim())}`);
-}
-
-/**
- * Get a Sleeper user by user_id.
- * Docs: https://docs.sleeper.com/#user-get-user
- */
-export async function getSleeperUserById(userId: string) {
-  if (!userId.trim()) throw new Error('User ID required');
-  return sleeperRequest<any>(`/user/${encodeURIComponent(userId.trim())}`);
-}
-
-// Example: you can grow this service over time:
-//
-export async function getUserLeagues(userId: string, sport: string, season: string) {
-  return sleeperRequest<any[]>(`/user/${encodeURIComponent(userId)}/leagues/${sport}/${season}`);
-}
-
-export async function getLeague(leagueId: string) {
-  return sleeperRequest<any>(`/league/${encodeURIComponent(leagueId)}`);
-}
-
-export async function getLeagueRosters(leagueId: string) {
-  return sleeperRequest<any[]>(`/league/${encodeURIComponent(leagueId)}/rosters`);
-}
-
-export async function getAllNflPlayers(): Promise<Record<string, any>> {
-  // Cache for 24 hours — player metadata (name, position, team) rarely changes mid-day
-  const res = await fetch(`${SLEEPER_BASE_URL}/players/nfl`, {
-    next: { revalidate: 86400 },
+    next: { revalidate },
   } as RequestInit);
 
   if (!res.ok) {
     throw new Error(`Sleeper API error: ${res.status} ${res.statusText}`);
   }
 
-  return res.json();
+  return res.json() as Promise<T>;
+}
+
+export async function getSleeperUserByUsername(username: string) {
+  if (!username.trim()) throw new Error('Username required');
+  return sleeperRequest<any>(`/user/${encodeURIComponent(username.trim())}`, TTL.user);
+}
+
+export async function getSleeperUserById(userId: string) {
+  if (!userId.trim()) throw new Error('User ID required');
+  return sleeperRequest<any>(`/user/${encodeURIComponent(userId.trim())}`, TTL.user);
+}
+
+export async function getUserLeagues(userId: string, sport: string, season: string) {
+  return sleeperRequest<any[]>(
+    `/user/${encodeURIComponent(userId)}/leagues/${sport}/${season}`,
+    TTL.leagues
+  );
+}
+
+export async function getLeague(leagueId: string) {
+  return sleeperRequest<any>(`/league/${encodeURIComponent(leagueId)}`, TTL.rosters);
+}
+
+export async function getLeagueRosters(leagueId: string) {
+  return sleeperRequest<any[]>(`/league/${encodeURIComponent(leagueId)}/rosters`, TTL.rosters);
+}
+
+export async function getLeagueMatchups(leagueId: string, week: number) {
+  return sleeperRequest<any[]>(
+    `/league/${encodeURIComponent(leagueId)}/matchups/${week}`,
+    TTL.rosters
+  );
+}
+
+export async function getAllNflPlayers(): Promise<Record<string, any>> {
+  return sleeperRequest<Record<string, any>>('/players/nfl', TTL.players);
 }

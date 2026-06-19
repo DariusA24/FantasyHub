@@ -5,16 +5,17 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { LeagueNav } from "./LeagueNav";
+import { SeasonAtAGlance } from "./components/SeasonAtAGlance";
+import { WeekMatchup } from "./components/WeekMatchup";
+import { PowerRankingsCard } from "./components/PowerRankingsCard";
+import type { MatchupData, PowerRankingTeam } from "./components/types";
 import {
   FiUsers,
   FiShield,
   FiTrendingUp,
   FiUser,
   FiCalendar,
-  FiTrash2,
   FiChevronRight,
-  FiZap,
-  FiBarChart2,
 } from "react-icons/fi";
 
 type MemberProfile = {
@@ -52,29 +53,7 @@ type HubLeague = {
   members: HubLeagueMember[];
 };
 
-const MOCK_SEASON_GLANCE = {
-  record: "8-5",
-  rank: "2nd",
-  pointsFor: 1612.4,
-  pointsAgainst: 1490.8,
-  streak: "W3",
-  waiverBudget: "$42",
-  playoffOdds: "94%",
-};
 
-const MOCK_MATCHUP = {
-  week: 14,
-  myTeam: { name: "Darius", score: 112.6, projected: 138.2 },
-  oppTeam: { name: "CommishDave", score: 98.4, projected: 121.5 },
-};
-
-const MOCK_POWER_RANKINGS = [
-  { rank: 1, name: "FantasyGuru", record: "10-3", delta: "up" },
-  { rank: 2, name: "Darius", record: "8-5", delta: "up" },
-  { rank: 3, name: "CommishDave", record: "8-5", delta: "down" },
-  { rank: 4, name: "TheRealMVP", record: "7-6", delta: "same" },
-  { rank: 5, name: "GridironKing", record: "6-7", delta: "down" },
-];
 
 const MOCK_RECENT_TRADES = [
   {
@@ -171,11 +150,24 @@ export default function HubLeaguePage() {
   const hubLeagueId = String(params?.hubLeagueId ?? "");
   const router = useRouter();
 
+  type Trade = {
+    transaction_id: string;
+    when: string;
+    teams: { displayName: string; players: { name: string; position: string | null }[]; picks: string[] }[];
+  };
+
   const [hubLeague, setHubLeague] = useState<HubLeague | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [commissionerName, setCommissionerName] = useState<string | null>(null);
+  const [commissionerAvatar, setCommissionerAvatar] = useState<string | null>(null);
+  const [recentTrades, setRecentTrades] = useState<Trade[]>([]);
+  const [matchupData, setMatchupData] = useState<MatchupData | null>(null);
+  const [matchupLoaded, setMatchupLoaded] = useState(false);
+  const [powerRankings, setPowerRankings] = useState<PowerRankingTeam[]>([]);
+  const [powerRankingsLoaded, setPowerRankingsLoaded] = useState(false);
 
   useEffect(() => {
     if (!hubLeagueId) return;
@@ -204,6 +196,50 @@ export default function HubLeaguePage() {
         setHubLeague(data.hubLeague ?? null);
         if (data.hubLeague) {
           localStorage.setItem("recentHubLeague", JSON.stringify({ id: hubLeagueId, name: data.hubLeague.name }));
+
+          // Resolve Sleeper commissioner + fetch recent trades + matchup
+          const latestSleeperLeagueId = data.hubLeague.seasons?.[0]?.sleeperLeagueId;
+          console.log("[matchup] latestSleeperLeagueId:", latestSleeperLeagueId);
+          if (latestSleeperLeagueId) {
+            const [usersRes, tradesRes, matchupRes, powerRankingsRes] = await Promise.all([
+              fetch(`/api/sleeper/league/${latestSleeperLeagueId}/users`),
+              fetch(`/api/sleeper/league/${latestSleeperLeagueId}/trades`),
+              fetch(`/api/hub-leagues/${hubLeagueId}/matchup`),
+              fetch(`/api/hub-leagues/${hubLeagueId}/power-rankings`),
+            ]);
+
+            if (usersRes.ok) {
+              const users: { user_id: string; display_name: string; avatar: string | null; is_owner: boolean }[] = await usersRes.json();
+              const commUser = users.find((u) => u.is_owner);
+              if (commUser) {
+                setCommissionerName(commUser.display_name);
+                setCommissionerAvatar(
+                  commUser.avatar ? `https://sleepercdn.com/avatars/thumbs/${commUser.avatar}` : null
+                );
+              }
+            }
+
+            if (tradesRes.ok) {
+              const trades = await tradesRes.json();
+              if (Array.isArray(trades)) setRecentTrades(trades);
+            }
+
+            const matchupJson = await matchupRes.json().catch(() => null);
+            console.log("[matchup] status:", matchupRes.status, "body:", matchupJson);
+            if (matchupRes.ok && matchupJson?.matchup !== undefined) {
+              setMatchupData(matchupJson);
+            }
+            setMatchupLoaded(true);
+
+            if (powerRankingsRes.ok) {
+              const prJson = await powerRankingsRes.json().catch(() => null);
+              if (Array.isArray(prJson?.rankings)) setPowerRankings(prJson.rankings);
+            }
+            setPowerRankingsLoaded(true);
+          } else {
+            setMatchupLoaded(true);
+            setPowerRankingsLoaded(true);
+          }
         }
       } catch (e: any) {
         setError(e?.message ?? "Unknown error loading hub league");
@@ -247,19 +283,25 @@ export default function HubLeaguePage() {
     }
   };
 
+  const shell = (children: React.ReactNode) => (
+    <div className="hub-page">
+      <div className="mx-auto max-w-6xl px-4 pb-24 pt-6">
+        <LeagueNav />
+        {children}
+      </div>
+    </div>
+  );
+
   // ─── Loading ──────────────────────────────────────────────
   if (loading) {
-    return (
-      <div className="hub-page p-6 text-gray-800 dark:text-zinc-200">
-        <LeagueNav />
-        <div className="mx-auto max-w-6xl mt-6 space-y-4">
-          <div className="h-8 w-48 rounded-xl bg-zinc-800/70 animate-pulse" />
-          <div className="h-4 w-72 rounded-lg bg-zinc-800/50 animate-pulse" />
-          <div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-4">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-24 rounded-2xl bg-gray-100 dark:bg-zinc-800/40 animate-pulse" />
-            ))}
-          </div>
+    return shell(
+      <div className="mt-6 space-y-4 animate-pulse">
+        <div className="h-8 w-48 rounded-xl bg-zinc-800/70" />
+        <div className="h-4 w-72 rounded-lg bg-zinc-800/50" />
+        <div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-24 rounded-2xl bg-zinc-800/40" />
+          ))}
         </div>
       </div>
     );
@@ -267,18 +309,12 @@ export default function HubLeaguePage() {
 
   // ─── Error ────────────────────────────────────────────────
   if (error || !hubLeague) {
-    return (
-      <div className="hub-page p-6 text-gray-800 dark:text-zinc-200">
-        <LeagueNav />
-        <div className="mx-auto max-w-6xl mt-4 rounded-2xl border border-red-900/60 bg-red-950/30 p-6">
-          <p className="text-red-400 mb-3">{error ?? "Hub league not found."}</p>
-          <button
-            className="text-sm text-[#F4D06F] hover:underline"
-            onClick={() => router.back()}
-          >
-            ← Go back
-          </button>
-        </div>
+    return shell(
+      <div className="mt-4 rounded-2xl border border-red-900/60 bg-red-950/30 p-6">
+        <p className="text-red-400 mb-3">{error ?? "Hub league not found."}</p>
+        <button className="text-sm text-[#F4D06F] hover:underline" onClick={() => router.back()}>
+          ← Go back
+        </button>
       </div>
     );
   }
@@ -333,10 +369,8 @@ export default function HubLeaguePage() {
     },
   ];
 
-  return (
-    <div className="hub-page">
-      <div className="mx-auto max-w-6xl px-4 pb-24 pt-6">
-        <LeagueNav />
+  return shell(
+    <>
 
         {/* ─── Hero Header ──────────────────────────────────── */}
         <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -382,163 +416,69 @@ export default function HubLeaguePage() {
             </div>
           </div>
 
-          {/* Owner card */}
-          <div className="shrink-0 rounded-xl border border-zinc-800/60 bg-zinc-900/50 px-4 py-3 flex items-center gap-3">
-            <div className="relative">
+          {/* Commissioner + Hub Owner card */}
+          <div className="shrink-0 rounded-xl border border-zinc-800/60 bg-zinc-900/50 px-4 py-3 flex flex-col gap-3 min-w-[180px]">
+            {/* Sleeper Commissioner */}
+            <div className="flex items-center gap-2.5">
+              {commissionerAvatar ? (
+                <Image
+                  src={commissionerAvatar}
+                  alt={commissionerName ?? "Commissioner"}
+                  width={32}
+                  height={32}
+                  className="h-8 w-8 rounded-full border border-[#F4D06F]/40 object-cover shrink-0"
+                />
+              ) : (
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F4D06F]/15 text-[11px] font-black text-[#F4D06F]">
+                  {commissionerName ? commissionerName[0].toUpperCase() : "C"}
+                </div>
+              )}
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#F4D06F]/70">Commissioner</p>
+                <p className="text-sm font-semibold text-zinc-100">
+                  {commissionerName ?? "—"}
+                </p>
+              </div>
+            </div>
+
+            <div className="h-px bg-zinc-800/60" />
+
+            {/* Hub League Owner */}
+            <div className="flex items-center gap-2.5">
               <Image
                 src={hubLeague.owner.profileImage || "/default-profile.png"}
                 alt={hubLeague.owner.username}
-                width={36}
-                height={36}
-                className="h-9 w-9 rounded-full border border-zinc-700 object-cover"
+                width={32}
+                height={32}
+                className="h-8 w-8 rounded-full border border-zinc-700 object-cover shrink-0"
               />
-              <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-[#F4D06F] border-2 border-zinc-900" />
-            </div>
-            <div>
-              <p className="text-[10px] text-gray-400 dark:text-zinc-500 uppercase tracking-wider">Commissioner</p>
-              <p className="text-sm font-semibold text-gray-900 dark:text-zinc-100">
-                {hubLeague.owner.firstName} {hubLeague.owner.lastName}
-              </p>
-              <p className="text-[11px] text-gray-500 dark:text-zinc-400">@{hubLeague.owner.username}</p>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Hub Owner</p>
+                <p className="text-sm font-semibold text-zinc-100">
+                  {hubLeague.owner.firstName} {hubLeague.owner.lastName}
+                </p>
+              </div>
             </div>
           </div>
         </div>
 
         {/* ─── At-a-glance row ─────────────────────────────── */}
         <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-
-          {/* Season at a Glance */}
-          <section className="hub-card p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <FiCalendar className="h-3.5 w-3.5 text-[#F4D06F]" />
-              <h2 className="text-[11px] font-semibold uppercase tracking-widest text-gray-500 dark:text-zinc-400">Season at a Glance</h2>
-            </div>
-            <div className="flex items-end gap-2 mb-3">
-              <span className="text-3xl font-black text-gray-900 dark:text-zinc-100">{MOCK_SEASON_GLANCE.record}</span>
-              <span className="mb-1 text-sm font-semibold text-[#F4D06F]">{MOCK_SEASON_GLANCE.rank} place</span>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { label: "PF", value: MOCK_SEASON_GLANCE.pointsFor.toFixed(1) },
-                { label: "PA", value: MOCK_SEASON_GLANCE.pointsAgainst.toFixed(1) },
-                { label: "Streak", value: MOCK_SEASON_GLANCE.streak },
-                { label: "Playoff %", value: MOCK_SEASON_GLANCE.playoffOdds },
-              ].map((s) => (
-                <div key={s.label} className="rounded-lg bg-gray-100 dark:bg-zinc-800/40 px-2.5 py-2">
-                  <p className="text-[9px] uppercase tracking-wider text-gray-400 dark:text-zinc-500 mb-0.5">{s.label}</p>
-                  <p className="text-xs font-bold text-gray-800 dark:text-zinc-200">{s.value}</p>
-                </div>
-              ))}
-            </div>
-            <Link
-              href={`/hub-league/${hubLeagueId}/standings`}
-              className="mt-3 flex w-full items-center justify-center gap-1 rounded-xl border border-dashed border-zinc-800/60 py-2 text-[11px] text-gray-300 dark:text-zinc-600 hover:border-zinc-700/60 hover:text-gray-500 dark:hover:text-zinc-400 transition"
-            >
-              Full Standings <FiChevronRight className="h-3 w-3" />
-            </Link>
-          </section>
-
-          {/* Week Matchup */}
-          <section className="hub-card p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <FiZap className="h-3.5 w-3.5 text-emerald-400" />
-              <h2 className="text-[11px] font-semibold uppercase tracking-widest text-gray-500 dark:text-zinc-400">Week {MOCK_MATCHUP.week} Matchup</h2>
-            </div>
-            <div className="space-y-2">
-              {[MOCK_MATCHUP.myTeam, MOCK_MATCHUP.oppTeam].map((team, i) => {
-                const isMe = i === 0;
-                const winning = MOCK_MATCHUP.myTeam.score > MOCK_MATCHUP.oppTeam.score;
-                const isWinning = isMe ? winning : !winning;
-                return (
-                  <div
-                    key={team.name}
-                    className={`rounded-xl border px-3 py-2.5 ${isMe ? "border-emerald-500/30 bg-emerald-500/5" : "hub-inner-card"}`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className={`text-xs font-semibold ${isMe ? "text-gray-900 dark:text-zinc-100" : "text-gray-500 dark:text-zinc-400"}`}>{team.name}</p>
-                        <p className="text-[10px] text-gray-300 dark:text-zinc-600">Proj: {team.projected}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className={`text-xl font-black ${isWinning ? "text-emerald-400" : "text-gray-500 dark:text-zinc-400"}`}>{team.score}</p>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            {/* Win probability bar */}
-            <div className="mt-3">
-              {(() => {
-                const myScore = MOCK_MATCHUP.myTeam.projected;
-                const oppScore = MOCK_MATCHUP.oppTeam.projected;
-                const total = myScore + oppScore;
-                const myPct = Math.round((myScore / total) * 100);
-                const oppPct = 100 - myPct;
-                return (
-                  <>
-                    <div className="mb-1 flex justify-between text-[10px] font-semibold">
-                      <span className="text-emerald-400">{myPct}%</span>
-                      <span className="text-gray-400 dark:text-zinc-500 font-normal">Win Probability</span>
-                      <span className="text-gray-500 dark:text-zinc-400">{oppPct}%</span>
-                    </div>
-                    <div className="flex h-2 w-full overflow-hidden rounded-full bg-zinc-800">
-                      <div
-                        className="h-full rounded-l-full bg-emerald-500 transition-all duration-500"
-                        style={{ width: `${myPct}%` }}
-                      />
-                      <div
-                        className="h-full rounded-r-full bg-red-800 transition-all duration-500"
-                        style={{ width: `${oppPct}%` }}
-                      />
-                    </div>
-                  </>
-                );
-              })()}
-            </div>
-            <p className="mt-2 text-center text-[10px] text-gray-300 dark:text-zinc-600 italic">Live · Updates every 5 min</p>
-            <Link
-              href={`/hub-league/${hubLeagueId}/matchup`}
-              className="mt-3 flex w-full items-center justify-center gap-1 rounded-xl border border-dashed border-zinc-800/60 py-2 text-[11px] text-gray-300 dark:text-zinc-600 hover:border-zinc-700/60 hover:text-gray-500 dark:hover:text-zinc-400 transition"
-            >
-              Match Breakdown <FiChevronRight className="h-3 w-3" />
-            </Link>
-          </section>
-
-          {/* Power Rankings */}
-          <section className="hub-card p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <FiBarChart2 className="h-3.5 w-3.5 text-purple-400" />
-              <h2 className="text-[11px] font-semibold uppercase tracking-widest text-gray-500 dark:text-zinc-400">Power Rankings</h2>
-            </div>
-            <ul className="space-y-1.5">
-              {MOCK_POWER_RANKINGS.map((team) => {
-                const isMe = team.name === "Darius";
-                const deltaColor = team.delta === "up" ? "text-emerald-400" : team.delta === "down" ? "text-red-400" : "text-gray-300 dark:text-zinc-600";
-                const deltaIcon = team.delta === "up" ? "▲" : team.delta === "down" ? "▼" : "–";
-                return (
-                  <li
-                    key={team.rank}
-                    className={`flex items-center gap-2 rounded-lg px-2.5 py-2 ${isMe ? "border border-[#F4D06F]/20 bg-[#F4D06F]/5" : "border border-transparent"}`}
-                  >
-                    <span className={`w-4 shrink-0 text-center text-[11px] font-bold ${team.rank === 1 ? "text-[#F4D06F]" : "text-gray-400 dark:text-zinc-500"}`}>
-                      {team.rank}
-                    </span>
-                    <p className={`flex-1 text-xs font-medium ${isMe ? "text-[#F4D06F]" : "text-gray-300 dark:text-zinc-300"}`}>{team.name}</p>
-                    <span className="text-[10px] text-gray-300 dark:text-zinc-600">{team.record}</span>
-                    <span className={`text-[10px] font-bold ${deltaColor}`}>{deltaIcon}</span>
-                  </li>
-                );
-              })}
-            </ul>
-            <Link
-              href={`/hub-league/${hubLeagueId}/power-rankings`}
-              className="mt-3 flex w-full items-center justify-center gap-1 rounded-xl border border-dashed border-zinc-800/60 py-2 text-[11px] text-gray-300 dark:text-zinc-600 hover:border-zinc-700/60 hover:text-gray-500 dark:hover:text-zinc-400 transition"
-            >
-              Full Power Rankings <FiChevronRight className="h-3 w-3" />
-            </Link>
-          </section>
-
+          <SeasonAtAGlance
+            loaded={matchupLoaded}
+            seasonGlance={matchupData?.seasonGlance}
+            hubLeagueId={hubLeagueId}
+          />
+          <WeekMatchup
+            loaded={matchupLoaded}
+            week={matchupData?.week}
+            matchup={matchupData?.matchup ?? null}
+          />
+          <PowerRankingsCard
+            loaded={powerRankingsLoaded}
+            rankings={powerRankings}
+            hubLeagueId={hubLeagueId}
+          />
         </div>
 
         {/* ─── Quick Nav Cards ──────────────────────────────── */}
@@ -667,45 +607,55 @@ export default function HubLeaguePage() {
           {/* Recent Activity */}
           <section className="col-span-2 hub-card p-5">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-gray-900 dark:text-zinc-100">Recent Activity</h2>
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-zinc-100">Recent Trades</h2>
               <span className="rounded-full border border-emerald-500/20 bg-emerald-500/5 px-2 py-0.5 text-[10px] text-emerald-400">
-                Trades
+                Live
               </span>
             </div>
-            <ul className="space-y-3">
-              {MOCK_RECENT_TRADES.map((trade) => (
-                <li key={trade.id} className="hub-inner-card rounded-xl px-3 py-3">
-                  <div className="mb-2 flex items-center justify-between gap-1">
-                    <p className="text-xs font-semibold text-gray-900 dark:text-zinc-100 truncate">
-                      {trade.teamA} <span className="text-gray-300 dark:text-zinc-600">↔</span> {trade.teamB}
-                    </p>
-                    <span className="shrink-0 text-[10px] text-gray-300 dark:text-zinc-600">{trade.when}</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <p className="text-[9px] uppercase tracking-wider text-gray-300 dark:text-zinc-600 mb-1">{trade.teamA} gets</p>
-                      <div className="space-y-0.5">
-                        {trade.received.map((asset) => (
-                          <p key={asset} className="text-[11px] font-medium text-emerald-400 truncate">{asset}</p>
-                        ))}
-                      </div>
+
+            {recentTrades.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <p className="text-sm text-zinc-500">No trades in the last 3 weeks</p>
+              </div>
+            ) : (
+              <ul className="space-y-3">
+                {recentTrades.map((trade) => (
+                  <li key={trade.transaction_id} className="hub-inner-card rounded-xl px-3 py-3">
+                    <div className="mb-2 flex items-center justify-between gap-1">
+                      <p className="text-xs font-semibold text-gray-900 dark:text-zinc-100 truncate">
+                        {trade.teams.map((t) => t.displayName).join(" ↔ ")}
+                      </p>
+                      <span className="shrink-0 text-[10px] text-gray-300 dark:text-zinc-600">{trade.when}</span>
                     </div>
-                    <div>
-                      <p className="text-[9px] uppercase tracking-wider text-gray-300 dark:text-zinc-600 mb-1">{trade.teamB} gets</p>
-                      <div className="space-y-0.5">
-                        {trade.gave.map((asset) => (
-                          <p key={asset} className="text-[11px] font-medium text-gray-500 dark:text-zinc-400 truncate">{asset}</p>
-                        ))}
-                      </div>
+                    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${trade.teams.length}, 1fr)` }}>
+                      {trade.teams.map((team) => (
+                        <div key={team.displayName}>
+                          <p className="text-[9px] uppercase tracking-wider text-gray-300 dark:text-zinc-600 mb-1">
+                            {team.displayName} gets
+                          </p>
+                          <div className="space-y-0.5">
+                            {team.players.map((p) => (
+                              <p key={p.name} className="text-[11px] font-medium text-emerald-400 truncate">
+                                {p.name}
+                                {p.position && <span className="ml-1 text-zinc-600">{p.position}</span>}
+                              </p>
+                            ))}
+                            {team.picks.map((pick) => (
+                              <p key={pick} className="text-[11px] font-medium text-[#F4D06F]/80 truncate">
+                                {pick}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
 
         </div>
-      </div>
-    </div>
+    </>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useUser } from "@clerk/nextjs";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -15,6 +15,9 @@ import {
   FiUsers,
   FiShield,
   FiStar,
+  FiEdit2,
+  FiCheck,
+  FiX,
 } from "react-icons/fi";
 
 type UserProfile = {
@@ -23,6 +26,7 @@ type UserProfile = {
   lastName: string;
   username: string;
   profileImage: string;
+  bio: string | null;
   sleeperProfileId: string | null;
 };
 
@@ -34,9 +38,9 @@ type League = {
   avatar: string | null;
 };
 
-type Record = { wins: number; losses: number; ties: number };
+type LeagueRecord = { wins: number; losses: number; ties: number };
 
-const SEASONS = ["2026", "2025", "2024", "2023"];
+const SEASONS = ["2026", "2025", "2024", "2023", "2022", "2021", "2020", "2019", "2018", "2017"];
 
 const MOCK_FAVE_PLAYERS = [
   { name: "Justin Jefferson", position: "WR", team: "MIN", drafts: 4 },
@@ -50,9 +54,17 @@ export default function GMPage() {
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [sleeperUsername, setSleeperUsername] = useState<string>("");
-  const [allLeagues, setAllLeagues] = useState<{ league: League; record: Record }[]>([]);
+  const [allLeagues, setAllLeagues] = useState<{ league: League; record: LeagueRecord }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [editPhoto, setEditPhoto] = useState("");
+  const [editBio, setEditBio] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const hasFetched = useRef(false);
+  const routerRef = useRef(router);
+  useEffect(() => { routerRef.current = router; });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -62,21 +74,22 @@ export default function GMPage() {
       if (!res.ok) throw new Error("Failed to load profile");
       const data = await res.json();
       const p: UserProfile = data.profile;
-      if (!p) { router.push("/profile/create"); return; }
+      if (!p) { routerRef.current.push("/profile/create"); return; }
       setProfile(p);
 
       if (p.sleeperProfileId) {
-        try {
-          const linked = await getLinkedSleeperProfileForUser();
+        // Fetch username + all seasons' leagues in parallel (no sequential waterfall)
+        const [linkedResult, ...leaguesBySeasonResults] = await Promise.allSettled([
+          getLinkedSleeperProfileForUser(),
+          ...SEASONS.map((s) => getSleeperLeagues(p.sleeperProfileId!, s)),
+        ]);
+
+        if (linkedResult.status === "fulfilled" && linkedResult.value) {
+          const linked = linkedResult.value;
           setSleeperUsername(
             typeof linked === "string" ? linked : linked?.username || linked?.display_name || ""
           );
-        } catch { /* non-fatal */ }
-
-        // Fetch all leagues across seasons in parallel
-        const leaguesBySeasonResults = await Promise.allSettled(
-          SEASONS.map((s) => getSleeperLeagues(p.sleeperProfileId!, s))
-        );
+        }
 
         const combined: League[] = [];
         for (const result of leaguesBySeasonResults) {
@@ -110,10 +123,14 @@ export default function GMPage() {
     } finally {
       setLoading(false);
     }
-  }, [router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
-    if (isLoaded && isSignedIn) load();
+    if (isLoaded && isSignedIn && !hasFetched.current) {
+      hasFetched.current = true;
+      load();
+    }
   }, [isLoaded, isSignedIn, load]);
 
   if (!isLoaded || loading) {
@@ -155,7 +172,7 @@ export default function GMPage() {
   ];
 
   // Group leagues by season for display
-  const bySeason = allLeagues.reduce<Record<string, typeof allLeagues>>((acc, item) => {
+  const bySeason = allLeagues.reduce<{ [key: string]: typeof allLeagues }>((acc, item) => {
     const s = item.league.season;
     if (!acc[s]) acc[s] = [];
     acc[s].push(item);
@@ -163,7 +180,34 @@ export default function GMPage() {
   }, {});
   const sortedSeasons = Object.keys(bySeason).sort((a, b) => Number(b) - Number(a));
 
-  const profileImageUrl = profile.profileImage || user.imageUrl || "/default-profile.png";
+  const profileImageUrl = editing ? (editPhoto || user.imageUrl || "/default-profile.png") : (profile.profileImage || user.imageUrl || "/default-profile.png");
+
+  const handleEditOpen = () => {
+    setEditPhoto(profile.profileImage || "");
+    setEditBio(profile.bio || "");
+    setSaveError(null);
+    setEditing(true);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const res = await fetch("/api/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profileImage: editPhoto || profile.profileImage, bio: editBio }),
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      const data = await res.json();
+      setProfile((prev) => prev ? { ...prev, profileImage: data.profile.profileImage, bio: data.profile.bio } : prev);
+      setEditing(false);
+    } catch (e: any) {
+      setSaveError(e?.message ?? "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#05060a] via-[#050814] to-[#020308]">
@@ -181,6 +225,7 @@ export default function GMPage() {
                   width={72}
                   height={72}
                   className="relative h-16 w-16 rounded-full border border-zinc-700 object-cover shadow-xl"
+                  onError={(e) => { (e.target as HTMLImageElement).src = "/default-profile.png"; }}
                 />
               </div>
               <div>
@@ -197,16 +242,80 @@ export default function GMPage() {
                     <span className="ml-2 text-zinc-600">· Sleeper: <span className="text-zinc-400">{sleeperUsername}</span></span>
                   )}
                 </p>
+                {!editing && (
+                  <p className="mt-1.5 text-sm text-zinc-400 max-w-xs">
+                    {profile.bio || <span className="italic text-zinc-600">No bio yet — add one below.</span>}
+                  </p>
+                )}
               </div>
             </div>
 
-            {/* Win rate ring */}
-            <div className="shrink-0 text-center">
-              <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">Career Win Rate</p>
-              <p className="text-4xl font-black text-[#F4D06F]">{winRate}%</p>
-              <p className="text-xs text-zinc-500 mt-0.5">{totalWins}W – {totalLosses}L</p>
+            {/* Win rate + edit button */}
+            <div className="shrink-0 flex flex-col items-center gap-3">
+              <div className="text-center">
+                <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">Career Win Rate</p>
+                <p className="text-4xl font-black text-[#F4D06F]">{winRate}%</p>
+                <p className="text-xs text-zinc-500 mt-0.5">{totalWins}W – {totalLosses}L</p>
+              </div>
+              {!editing && (
+                <button
+                  onClick={handleEditOpen}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-zinc-700/60 bg-zinc-900/60 px-3 py-1.5 text-xs text-zinc-400 hover:border-[#F4D06F]/40 hover:text-[#F4D06F] transition-colors"
+                >
+                  <FiEdit2 className="h-3 w-3" />
+                  Edit Profile
+                </button>
+              )}
             </div>
           </div>
+
+          {/* ─── Inline edit form ─── */}
+          {editing && (
+            <div className="mt-5 border-t border-zinc-800/60 pt-5 space-y-4">
+              <div>
+                <label className="block text-[11px] uppercase tracking-widest text-zinc-500 mb-1.5">Photo URL</label>
+                <input
+                  type="url"
+                  value={editPhoto}
+                  onChange={(e) => setEditPhoto(e.target.value)}
+                  placeholder="https://example.com/your-photo.jpg"
+                  className="w-full rounded-xl border border-zinc-700/60 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-[#F4D06F]/50 focus:ring-1 focus:ring-[#F4D06F]/30 transition"
+                />
+                <p className="mt-1 text-[10px] text-zinc-600">Paste a direct link to an image (JPG, PNG, etc.)</p>
+              </div>
+              <div>
+                <label className="block text-[11px] uppercase tracking-widest text-zinc-500 mb-1.5">Bio</label>
+                <textarea
+                  value={editBio}
+                  onChange={(e) => setEditBio(e.target.value)}
+                  placeholder="Tell other managers about yourself…"
+                  rows={3}
+                  maxLength={280}
+                  className="w-full rounded-xl border border-zinc-700/60 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-[#F4D06F]/50 focus:ring-1 focus:ring-[#F4D06F]/30 transition resize-none"
+                />
+                <p className="mt-0.5 text-right text-[10px] text-zinc-600">{editBio.length}/280</p>
+              </div>
+              {saveError && <p className="text-xs text-red-400">{saveError}</p>}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-[#F4D06F] px-4 py-1.5 text-xs font-semibold text-zinc-950 disabled:opacity-60 hover:bg-[#f7da8b] transition"
+                >
+                  <FiCheck className="h-3 w-3" />
+                  {saving ? "Saving…" : "Save"}
+                </button>
+                <button
+                  onClick={() => setEditing(false)}
+                  disabled={saving}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-zinc-700/60 px-4 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 transition disabled:opacity-60"
+                >
+                  <FiX className="h-3 w-3" />
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ─── Stat Cards ───────────────────────────────── */}
@@ -273,8 +382,8 @@ export default function GMPage() {
             <div className="space-y-5">
               {sortedSeasons.map((season) => {
                 const leagues = bySeason[season];
-                const seasonWins = leagues.reduce((s, l) => s + l.record.wins, 0);
-                const seasonLosses = leagues.reduce((s, l) => s + l.record.losses, 0);
+                const seasonWins = leagues.reduce((s: number, l) => s + l.record.wins, 0);
+                const seasonLosses = leagues.reduce((s: number, l) => s + l.record.losses, 0);
                 return (
                   <div key={season}>
                     <div className="mb-2 flex items-center gap-2">

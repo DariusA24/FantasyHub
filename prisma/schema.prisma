@@ -15,12 +15,13 @@ model Profile {
   username         String
   email            String
   profileImage     String
+  bio              String?
   updatedAt        DateTime          @updatedAt
   sleeperProfileId String?
   sleeperProfile   sleeperProfile?
-  hubLeagues       HubLeague[]
-  // NEW: hub league memberships (invited/allowed leagues)
-  hubLeagueMemberships HubLeagueMember[] @relation("ProfileMemberships")
+  hubLeagues           HubLeague[]
+  hubLeagueMemberships HubLeagueMember[]        @relation("ProfileMemberships")
+  managerProfiles      HubLeagueManagerProfile[] @relation("ManagerProfiles")
 }
 
 model sleeperProfile {
@@ -50,11 +51,11 @@ model HubLeague {
   description String?
   ownerId     Int
   owner       Profile           @relation(fields: [ownerId], references: [id])
-  seasons     HubLeagueSeason[]
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-  // NEW: members invited/allowed to this hub league
-  members     HubLeagueMember[] @relation("LeagueMembers")
+  seasons         HubLeagueSeason[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  members         HubLeagueMember[]        @relation("LeagueMembers")
+  managerProfiles HubLeagueManagerProfile[]
 }
 
 model HubLeagueSeason {
@@ -70,6 +71,33 @@ model HubLeagueSeason {
 
   @@index([sleeperLeagueId])
   @@index([hubLeagueId, season])
+}
+
+model HubLeagueManagerProfile {
+  id                Int      @id @default(autoincrement())
+  hubLeagueId       String
+  profileId         Int
+  bio               String?
+  playerStyle       String?
+  playerStyleSub    String?
+  favoriteAsset     String?
+  favoriteAssetSub  String?
+  tradeActivity     String?
+  tradeActivitySub  String?
+  favoritePlayerId  String?
+  favoritePlayerSub String?
+  mode              String?
+  modeSub           String?
+  rival             String?
+  rivalSub          String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  hubLeague HubLeague @relation(fields: [hubLeagueId], references: [id])
+  profile   Profile   @relation("ManagerProfiles", fields: [profileId], references: [id])
+
+  @@unique([hubLeagueId, profileId])
+  @@index([profileId])
 }
 
 // NEW: join table between HubLeague and Profile to represent membership

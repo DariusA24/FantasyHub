@@ -23,6 +23,7 @@ export function LeagueHubModal({ league, isOpen, onClose }: LeagueHubModalProps)
   const [createError, setCreateError] = useState(false);
   const [createErrorMessage, setCreateErrorMessage] = useState<string | null>(null);
   const [joiningId, setJoiningId] = useState<string | null>(null); // NEW
+  const [navigatingId, setNavigatingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen || !league) return;
@@ -96,7 +97,7 @@ export function LeagueHubModal({ league, isOpen, onClose }: LeagueHubModalProps)
   const alreadyHasHubLeague = hubLeagues.length > 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+    <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/70 ${navigatingId ? "cursor-wait" : ""}`}>
       <div className="w-full max-w-lg rounded-2xl bg-[#050711] border border-[#1d212b] p-6 shadow-xl">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-semibold text-[#F4D06F]">
@@ -186,10 +187,10 @@ export function LeagueHubModal({ league, isOpen, onClose }: LeagueHubModalProps)
                   <div className="flex items-center gap-2">
                     {hub.isMember ? (
                       <button
-                        className="text-xs text-[#F4D06F]"
+                        className={`inline-flex items-center gap-1.5 text-xs text-[#F4D06F] disabled:opacity-60 ${navigatingId === hub.id ? "cursor-wait" : ""}`}
+                        disabled={navigatingId === hub.id}
                         onClick={async () => {
-                          // Silently link the current season to the hub league
-                          // (no-op if already linked; carry-over if new season)
+                          setNavigatingId(hub.id);
                           if (league) {
                             try {
                               await createHubLeagueForSleeperLeague(league);
@@ -197,10 +198,18 @@ export function LeagueHubModal({ league, isOpen, onClose }: LeagueHubModalProps)
                               // Non-fatal — navigate regardless
                             }
                           }
+                          if (typeof window !== "undefined") {
+                            localStorage.setItem("recentHubLeague", JSON.stringify({ id: hub.id, name: hub.name }));
+                          }
                           router.push(`/hub-league/${hub.id}`);
                         }}
                       >
-                        Open
+                        {navigatingId === hub.id ? (
+                          <>
+                            <span className="h-3 w-3 rounded-full border-2 border-[#F4D06F]/40 border-t-[#F4D06F] animate-spin" />
+                            Opening…
+                          </>
+                        ) : "Open"}
                       </button>
                     ) : (
                       <button

@@ -4,10 +4,19 @@ import FormContainer from '@/components/form/FormContainer';
 import { createProfileAction } from '@/utils/actions';
 import { currentUser } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
+import { prisma } from '@/utils/db';
 
 async function page() {
-  const user = await currentUser(); 
-  if(user?.privateMetadata?.hasProfile) redirect('/'); 
+  const user = await currentUser();
+  if (user?.privateMetadata?.hasProfile) {
+    // Only redirect home if the DB profile actually exists — avoids an
+    // infinite loop when Clerk metadata is stale and the DB row is missing.
+    const dbProfile = await prisma.profile.findUnique({
+      where: { clerkId: user.id },
+      select: { id: true },
+    });
+    if (dbProfile) redirect('/');
+  }
   console.log(user);
   return (
     <section className='max-w-3xl mx-auto py-8 px-4'>
