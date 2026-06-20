@@ -599,20 +599,22 @@ export default function ManagerPage() {
           const playerName = favoritePlayer?.full_name;
           const sub = mp.favoritePlayerSub;
           return (
-            <div className={`flex flex-col gap-1.5 rounded-2xl border p-4 text-purple-400 border-purple-500/30 bg-purple-500/5 ${!playerName ? "opacity-40" : ""}`}>
+            <div className={`flex flex-col gap-1.5 rounded-2xl border p-4 text-purple-400 border-purple-500/30 bg-purple-500/5 min-w-0 overflow-hidden ${!playerName ? "opacity-40" : ""}`}>
               <div className="flex items-center gap-1.5 opacity-80">
-                <GiAmericanFootballPlayer className="h-4 w-4" />
-                <span className="text-[10px] font-semibold uppercase tracking-widest">Favorite Player</span>
+                <GiAmericanFootballPlayer className="h-4 w-4 shrink-0" />
+                <span className="text-[10px] font-semibold uppercase tracking-widest truncate">Favorite Player</span>
               </div>
-              <p className="text-sm font-bold text-gray-900 dark:text-zinc-100">
-                {playerName || <span className="italic text-zinc-600">Not set</span>}
-              </p>
-              {playerName && favoritePlayer?.position && (
-                <p className="text-[11px] text-zinc-500">
-                  {favoritePlayer.position} · {favoritePlayer.team ?? "FA"}
+              <div className="flex items-baseline gap-2 min-w-0">
+                <p className="text-sm font-bold text-gray-900 dark:text-zinc-100 truncate">
+                  {playerName || <span className="italic text-zinc-600">Not set</span>}
                 </p>
-              )}
-              {sub && <p className="text-[11px] text-zinc-500 leading-snug">{sub}</p>}
+                {playerName && favoritePlayer?.position && (
+                  <span className="shrink-0 text-[11px] text-zinc-500">
+                    {favoritePlayer.position} · {favoritePlayer.team ?? "FA"}
+                  </span>
+                )}
+              </div>
+              {sub && <p className="text-[11px] text-zinc-500 leading-snug line-clamp-2">{sub}</p>}
             </div>
           );
         })()}

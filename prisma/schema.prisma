@@ -22,6 +22,9 @@ model Profile {
   hubLeagues           HubLeague[]
   hubLeagueMemberships HubLeagueMember[]        @relation("ProfileMemberships")
   managerProfiles      HubLeagueManagerProfile[] @relation("ManagerProfiles")
+  authoredPosts        HubLeaguePost[]           @relation("AuthoredPosts")
+  postLikes            HubLeaguePostLike[]       @relation("PostLikes")
+  postComments         HubLeaguePostComment[]    @relation("PostComments")
 }
 
 model sleeperProfile {
@@ -56,6 +59,60 @@ model HubLeague {
   updatedAt       DateTime          @updatedAt
   members         HubLeagueMember[]        @relation("LeagueMembers")
   managerProfiles HubLeagueManagerProfile[]
+  posts           HubLeaguePost[]
+}
+
+model HubLeaguePost {
+  id          String   @id @default(cuid())
+  hubLeagueId String
+  authorId    Int
+  tag         String   // "Recap" | "Trade" | "Power Rankings" | "Trash Talk" | "Injury" | "News"
+  weekLabel   String
+  title       String
+  body        String
+  excerpt     String
+  readTime    String
+  publishedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  hubLeague HubLeague            @relation(fields: [hubLeagueId], references: [id], onDelete: Cascade)
+  author    Profile              @relation("AuthoredPosts", fields: [authorId], references: [id])
+  likes     HubLeaguePostLike[]
+  comments  HubLeaguePostComment[]
+
+  @@index([hubLeagueId])
+  @@index([authorId])
+}
+
+model HubLeaguePostLike {
+  id        Int      @id @default(autoincrement())
+  postId    String
+  profileId Int
+  value     Int      // 1 = like, -1 = dislike
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  post    HubLeaguePost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  profile Profile       @relation("PostLikes", fields: [profileId], references: [id])
+
+  @@unique([postId, profileId])
+  @@index([postId])
+}
+
+model HubLeaguePostComment {
+  id        String   @id @default(cuid())
+  postId    String
+  authorId  Int
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  post   HubLeaguePost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author Profile       @relation("PostComments", fields: [authorId], references: [id])
+
+  @@index([postId])
+  @@index([authorId])
 }
 
 model HubLeagueSeason {

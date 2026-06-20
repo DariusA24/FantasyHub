@@ -8,6 +8,7 @@ import { LeagueNav } from "./LeagueNav";
 import { SeasonAtAGlance } from "./components/SeasonAtAGlance";
 import { WeekMatchup } from "./components/WeekMatchup";
 import { PowerRankingsCard } from "./components/PowerRankingsCard";
+import { LeagueBlog } from "./components/LeagueBlog";
 import type { MatchupData, PowerRankingTeam } from "./components/types";
 import {
   FiUsers,
@@ -82,55 +83,6 @@ const MOCK_RECENT_TRADES = [
   },
 ];
 
-const MOCK_POSTS = [
-  {
-    id: 1,
-    tag: "Recap",
-    date: "Week 14",
-    title: "The Miracle on Turf: How I Survived Without My RB1",
-    excerpt:
-      "After losing my starting running back to injury in the first quarter, I was dead in the water. Then Justin Jefferson went absolutely nuclear for 214 yards and 3 TDs.",
-    author: "CommishDave",
-    readTime: "3 min read",
-  },
-  {
-    id: 2,
-    tag: "Trade",
-    date: "Week 12",
-    title: "Robbery of the Year? Breaking Down the CeeDee Lamb Blockbuster",
-    excerpt:
-      "Multiple first-round picks for a single receiver. The league is still arguing whether this trade broke the competitive balance or was simply genius.",
-    author: "FantasyGuru",
-    readTime: "5 min read",
-  },
-  {
-    id: 3,
-    tag: "Power Rankings",
-    date: "Week 13",
-    title: "Week 13 Power Rankings: The Throne Is Up for Grabs",
-    excerpt:
-      "Three teams tied atop the standings with two weeks to go. Here's our updated power rankings and playoff picture heading into the final stretch.",
-    author: "CommishDave",
-    readTime: "4 min read",
-  },
-  {
-    id: 4,
-    tag: "Trash Talk",
-    date: "Week 11",
-    title: "An Open Letter to the Team That Benched Tyreek Hill",
-    excerpt:
-      "We get it, he had a bad couple weeks. But you benched him against the worst secondary in the league. You only have yourself to blame.",
-    author: "TheRealMVP",
-    readTime: "2 min read",
-  },
-];
-
-const POST_TAG_STYLE: Record<string, string> = {
-  Recap: "border-blue-500/30 bg-blue-500/10 text-blue-400",
-  Trade: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
-  "Power Rankings": "border-[#F4D06F]/30 bg-[#F4D06F]/10 text-[#F4D06F]",
-  "Trash Talk": "border-red-500/30 bg-red-500/10 text-red-400",
-};
 
 const ROLE_BADGE: Record<string, string> = {
   owner: "bg-[#F4D06F]/15 text-[#F4D06F] border-[#F4D06F]/30",
@@ -556,53 +508,7 @@ export default function HubLeaguePage() {
             )}
           </section>
 
-          {/* League Blog */}
-          <section className="col-span-3 hub-card p-5">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-semibold text-gray-900 dark:text-zinc-100">League Blog</h2>
-                <p className="text-[11px] text-gray-400 dark:text-zinc-500 mt-0.5">News, recaps, and trash talk from your league</p>
-              </div>
-              <button className="rounded-lg border border-[#F4D06F]/30 bg-[#F4D06F]/5 px-3 py-1.5 text-[11px] font-medium text-[#F4D06F] hover:bg-[#F4D06F]/10 transition">
-                + New Post
-              </button>
-            </div>
-            <ul className="space-y-3">
-              {MOCK_POSTS.map((post) => (
-                <li
-                  key={post.id}
-                  className="group hub-inner-card rounded-xl px-4 py-3 hover:border-zinc-700/60 transition cursor-pointer"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${POST_TAG_STYLE[post.tag]}`}>
-                          {post.tag}
-                        </span>
-                        <span className="text-[10px] text-gray-300 dark:text-zinc-600">{post.date}</span>
-                      </div>
-                      <p className="text-sm font-semibold text-gray-900 dark:text-zinc-100 group-hover:text-white truncate">
-                        {post.title}
-                      </p>
-                      <p className="mt-0.5 text-xs text-gray-400 dark:text-zinc-500 line-clamp-2">{post.excerpt}</p>
-                    </div>
-                    <FiChevronRight className="mt-1 h-4 w-4 shrink-0 text-gray-200 dark:text-zinc-700 group-hover:text-gray-500 dark:group-hover:text-zinc-400 transition-colors" />
-                  </div>
-                  <div className="mt-2 flex items-center gap-1.5">
-                    <div className="h-4 w-4 rounded-full bg-zinc-700 overflow-hidden shrink-0">
-                      <div className="h-full w-full bg-gradient-to-br from-zinc-500 to-zinc-700" />
-                    </div>
-                    <span className="text-[10px] text-gray-400 dark:text-zinc-500">{post.author}</span>
-                    <span className="text-[10px] text-gray-200 dark:text-zinc-700">·</span>
-                    <span className="text-[10px] text-gray-300 dark:text-zinc-600">{post.readTime}</span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-            <button className="mt-3 w-full rounded-xl border border-dashed border-zinc-800/60 py-2.5 text-xs text-gray-300 dark:text-zinc-600 hover:text-gray-500 dark:hover:text-zinc-400 hover:border-zinc-700/60 transition">
-              View all posts
-            </button>
-          </section>
+          <LeagueBlog hubLeagueId={hubLeagueId} />
 
           {/* Recent Activity */}
           <section className="col-span-2 hub-card p-5">
