@@ -6,7 +6,8 @@ import {
   fetchHubLeaguesForSleeperLeague,
   createHubLeagueForSleeperLeague,
   joinHubLeague,
-} from "@/utils/hubActions"; // NEW
+  triggerComputeAllAwards,
+} from "@/utils/hubActions";
 
 type LeagueHubModalProps = {
   league: SleeperLeague | null;
@@ -63,6 +64,8 @@ export function LeagueHubModal({ league, isOpen, onClose }: LeagueHubModalProps)
         return exists ? prev : [...prev, created];
       });
       setCreateSuccess(true);
+      // Kick off historical award computation in the background (non-blocking)
+      triggerComputeAllAwards(created.id);
     } catch (err: any) {
       console.error("Error creating hub league:", err);
       setCreateError(true);

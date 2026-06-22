@@ -38,6 +38,7 @@ export async function GET(_req: NextRequest, context: RouteContext) {
 
     return NextResponse.json({
       profile: {
+        id: profile.id,
         firstName: profile.firstName,
         lastName: profile.lastName,
         profileImage: profile.profileImage,

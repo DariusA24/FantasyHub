@@ -98,7 +98,7 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ hubLeague }, { status: 200 });
+    return NextResponse.json({ hubLeague, isOwner }, { status: 200 });
   } catch (err) {
     console.error("Error fetching hub league:", err);
     return NextResponse.json(

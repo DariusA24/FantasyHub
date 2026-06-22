@@ -5,7 +5,6 @@ import { useParams } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { LeagueNav } from "../LeagueNav";
 import { PlayerStatsModal } from "@/components/player/PlayerStatsModal";
-import { DynastyLeaderboard } from "../components/DynastyLeaderboard";
 import { FiTrendingUp, FiTrendingDown, FiMinus, FiAlertCircle } from "react-icons/fi";
 
 // Sleeper CDN thumbnail
@@ -680,15 +679,7 @@ export default function LeaguePage() {
             )}
           </section>
         </div>
-
-        <DynastyLeaderboard
-          allRosters={allRosters}
-          player={player}
-          dynastyMap={dynastyMap}
-          leagueUsers={leagueUsers}
-          myOwnerId={myRoster?.owner_id ?? null}
-        />
-        </>
+</>
       )}
 
       {/* Player stats modal */}

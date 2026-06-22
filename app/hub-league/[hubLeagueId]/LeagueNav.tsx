@@ -8,8 +8,6 @@ import {
   FiUsers,
   FiShield,
   FiTrendingUp,
-  FiAward,
-  FiUser,
 } from "react-icons/fi";
 
 export function LeagueNav() {
@@ -22,9 +20,8 @@ export function LeagueNav() {
   const items = [
     { href: `/hub-league/${hubLeagueId}`, label: "Overview", icon: FiHome },
     { href: `/hub-league/${hubLeagueId}/roster`, label: "Roster", icon: FiUsers },
-    { href: `/hub-league/${hubLeagueId}/franchise`, label: "Franchise", icon: FiShield },
+    { href: `/hub-league/${hubLeagueId}/franchise`, label: "My Franchise", icon: FiShield },
     { href: `/hub-league/${hubLeagueId}/bets`, label: "Bets", icon: FiTrendingUp },
-    { href: `/hub-league/${hubLeagueId}/manager`, label: "Manager", icon: FiUser },
   ];
 
   return (

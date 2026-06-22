@@ -25,6 +25,7 @@ model Profile {
   authoredPosts        HubLeaguePost[]           @relation("AuthoredPosts")
   postLikes            HubLeaguePostLike[]       @relation("PostLikes")
   postComments         HubLeaguePostComment[]    @relation("PostComments")
+  awards               HubLeagueAward[]          @relation("AwardedProfiles")
 }
 
 model sleeperProfile {
@@ -60,6 +61,29 @@ model HubLeague {
   members         HubLeagueMember[]        @relation("LeagueMembers")
   managerProfiles HubLeagueManagerProfile[]
   posts           HubLeaguePost[]
+  champions       HubLeagueChampion[]
+  awards          HubLeagueAward[]
+}
+
+model HubLeagueChampion {
+  id          String   @id @default(cuid())
+  hubLeagueId String
+  season      String   // e.g. "2024"
+  winnerName  String
+  teamName    String?
+  wins        Int
+  losses      Int
+  ties        Int      @default(0)
+  notes       String?
+  variant     String   @default("classic") // "classic" | "diamond" | "obsidian" | "ruby" | "emerald"
+  photoUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  hubLeague HubLeague @relation(fields: [hubLeagueId], references: [id], onDelete: Cascade)
+
+  @@unique([hubLeagueId, season])
+  @@index([hubLeagueId])
 }
 
 model HubLeaguePost {
@@ -196,4 +220,24 @@ model maddenPlayer {
   @@map("maddenPlayer")
 }
 
+model HubLeagueAward {
+  id            String   @id @default(cuid())
+  hubLeagueId   String
+  season        String
+  sleeperUserId String
+  profileId     Int?
+  type          String
+  label         String
+  description   String
+  value         String?
+  week          Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
+  hubLeague HubLeague @relation(fields: [hubLeagueId], references: [id], onDelete: Cascade)
+  profile   Profile?  @relation("AwardedProfiles", fields: [profileId], references: [id])
+
+  @@unique([hubLeagueId, season, type, sleeperUserId])
+  @@index([hubLeagueId, season])
+  @@index([profileId])
+}

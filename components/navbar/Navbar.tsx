@@ -49,7 +49,7 @@ function NavBar() {
                 className="inline-flex items-center gap-1.5 rounded-full px-3 sm:px-4 py-1.5 text-[11px] sm:text-xs font-medium text-amber-50/80 hover:text-amber-50 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/40 transition-all duration-150"
               >
                 <FiInfo className="h-3.5 w-3.5" />
-                <span className="tracking-[0.18em]">ABOUT</span>
+                <span className="tracking-[0.18em]">FORUM</span>
               </Link>
               <ToolsDropdown />
               {/* Dark mode + profile */}

@@ -189,6 +189,15 @@ export async function linkSeasonToHubLeague(
   return updated;
 }
 
+/**
+ * Fire-and-forget: kick off award computation for all historical seasons.
+ * Does not block — errors are swallowed so callers don't need to handle them.
+ */
+export function triggerComputeAllAwards(hubLeagueId: string): void {
+  fetch(`/api/hub-leagues/${hubLeagueId}/awards/compute-all`, { method: "POST" })
+    .catch(() => {}); // intentionally not awaited
+}
+
 export async function joinHubLeague(hubLeagueId: string): Promise<void> {
   // If your route folder is /app/hub-leagues/[hubLeagueId]/join/route.ts
   // then the URL should match that param name, not [id].
