@@ -43,13 +43,14 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
     const { searchParams } = new URL(req.url);
     const season = searchParams.get("season") ?? undefined;
     const profileIdParam = searchParams.get("profileId");
+    const sleeperUserIdParam = searchParams.get("sleeperUserId");
     const filterProfileId = profileIdParam ? Number(profileIdParam) : undefined;
 
     const awards = await prisma.hubLeagueAward.findMany({
       where: {
         hubLeagueId,
         ...(season ? { season } : {}),
-        ...(filterProfileId ? { profileId: filterProfileId } : {}),
+        ...(sleeperUserIdParam ? { sleeperUserId: sleeperUserIdParam } : filterProfileId ? { profileId: filterProfileId } : {}),
       },
       orderBy: [{ season: "desc" }, { createdAt: "asc" }],
     });

@@ -34,7 +34,7 @@ export async function GET(
     // Get profile for current user
     const profile = await prisma.profile.findUnique({
       where: { clerkId: user.id },
-      select: { id: true },
+      select: { id: true, sleeperProfileId: true },
     });
 
     if (!profile) {
@@ -98,7 +98,19 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ hubLeague, isOwner }, { status: 200 });
+    // Last sync time: most recent award updatedAt for this hub league
+    const lastAward = await prisma.hubLeagueAward.findFirst({
+      where: { hubLeagueId },
+      orderBy: { updatedAt: "desc" },
+      select: { updatedAt: true },
+    });
+
+    return NextResponse.json({
+      hubLeague,
+      isOwner,
+      sleeperProfileId: profile.sleeperProfileId ?? null,
+      lastSyncedAt: lastAward?.updatedAt ?? null,
+    }, { status: 200 });
   } catch (err) {
     console.error("Error fetching hub league:", err);
     return NextResponse.json(

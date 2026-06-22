@@ -26,6 +26,10 @@ model Profile {
   postLikes            HubLeaguePostLike[]       @relation("PostLikes")
   postComments         HubLeaguePostComment[]    @relation("PostComments")
   awards               HubLeagueAward[]          @relation("AwardedProfiles")
+  seasonStats          HubLeagueSeasonStat[]     @relation("SeasonStats")
+  wallets              Wallet[]                  @relation("ProfileWallets")
+  createdBets          Bet[]                     @relation("BetCreator")
+  takenBets            Bet[]                     @relation("BetTaker")
 }
 
 model sleeperProfile {
@@ -63,6 +67,10 @@ model HubLeague {
   posts           HubLeaguePost[]
   champions       HubLeagueChampion[]
   awards          HubLeagueAward[]
+  seasonStats     HubLeagueSeasonStat[]
+  h2hRecords      HubLeagueH2H[]
+  wallets         Wallet[]
+  bets            Bet[]
 }
 
 model HubLeagueChampion {
@@ -220,6 +228,51 @@ model maddenPlayer {
   @@map("maddenPlayer")
 }
 
+model HubLeagueH2H {
+  id                  String   @id @default(cuid())
+  hubLeagueId         String
+  season              String
+  sleeperUserId       String
+  opponentUserId      String
+  opponentDisplayName String
+  opponentAvatar      String?
+  wins                Int      @default(0)
+  losses              Int      @default(0)
+  ties                Int      @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  hubLeague HubLeague @relation(fields: [hubLeagueId], references: [id], onDelete: Cascade)
+
+  @@unique([hubLeagueId, season, sleeperUserId, opponentUserId])
+  @@index([hubLeagueId, sleeperUserId])
+}
+
+model HubLeagueSeasonStat {
+  id            String   @id @default(cuid())
+  hubLeagueId   String
+  season        String
+  sleeperUserId String
+  profileId     Int?
+  wins          Int
+  losses        Int
+  ties          Int      @default(0)
+  pointsFor     Float
+  pointsAgainst Float
+  highWeek      Float
+  lowWeek       Float
+  rank          Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  hubLeague HubLeague @relation(fields: [hubLeagueId], references: [id], onDelete: Cascade)
+  profile   Profile?  @relation("SeasonStats", fields: [profileId], references: [id])
+
+  @@unique([hubLeagueId, season, sleeperUserId])
+  @@index([hubLeagueId, season])
+  @@index([profileId])
+}
+
 model HubLeagueAward {
   id            String   @id @default(cuid())
   hubLeagueId   String
@@ -240,4 +293,45 @@ model HubLeagueAward {
   @@unique([hubLeagueId, season, type, sleeperUserId])
   @@index([hubLeagueId, season])
   @@index([profileId])
+}
+
+model Wallet {
+  id          String   @id @default(cuid())
+  hubLeagueId String
+  profileId   Int
+  balance     Int      @default(10000)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  hubLeague HubLeague @relation(fields: [hubLeagueId], references: [id], onDelete: Cascade)
+  profile   Profile   @relation("ProfileWallets", fields: [profileId], references: [id])
+
+  @@unique([hubLeagueId, profileId])
+  @@index([profileId])
+}
+
+model Bet {
+  id          String    @id @default(cuid())
+  hubLeagueId String
+  creatorId   Int
+  takerId     Int?
+  type        String    // "season" | "h2h"
+  title       String
+  description String?
+  amount      Int
+  status      String    @default("open") // "open" | "accepted" | "settled" | "cancelled"
+  result      String?   // "creator" | "taker" | "push"
+  season      String?
+  week        Int?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  settledAt   DateTime?
+
+  hubLeague HubLeague @relation(fields: [hubLeagueId], references: [id], onDelete: Cascade)
+  creator   Profile   @relation("BetCreator", fields: [creatorId], references: [id])
+  taker     Profile?  @relation("BetTaker", fields: [takerId], references: [id])
+
+  @@index([hubLeagueId])
+  @@index([creatorId])
+  @@index([takerId])
 }

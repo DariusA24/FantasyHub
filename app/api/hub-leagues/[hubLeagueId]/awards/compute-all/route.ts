@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAuthUser } from "@/utils/actions";
 import { prisma } from "@/utils/db";
 import { computeAwardsForSeason } from "@/utils/computeLeagueAwards";
+import { computeSeasonStatsForSeason } from "@/utils/computeSeasonStats";
 
 type RouteContext = { params: Promise<{ hubLeagueId: string }> | { hubLeagueId: string } };
 
@@ -43,7 +44,7 @@ export async function POST(_req: Request, ctx: RouteContext) {
         where: { id: hubLeagueId },
         select: {
           ownerId: true,
-          seasons: { select: { id: true, sleeperLeagueId: true, season: true } },
+          seasons: { select: { id: true, sleeperLeagueId: true, season: true }, orderBy: { season: "desc" } },
         },
       }),
     ]);
@@ -51,7 +52,7 @@ export async function POST(_req: Request, ctx: RouteContext) {
     if (!profile) return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     if (!hubLeague) return NextResponse.json({ error: "Hub league not found" }, { status: 404 });
     if (profile.id !== hubLeague.ownerId) {
-      return NextResponse.json({ error: "Only the league owner can compute awards" }, { status: 403 });
+      return NextResponse.json({ error: "Only the hub league owner can sync" }, { status: 403 });
     }
 
     if (hubLeague.seasons.length === 0) {
@@ -113,8 +114,20 @@ export async function POST(_req: Request, ctx: RouteContext) {
 
     for (const [sleeperLeagueId, season] of allSeasons.entries()) {
       try {
-        const count = await computeAwardsForSeason(hubLeagueId, sleeperLeagueId, season);
-        results.push({ season, count });
+        const [awardsResult, statsResult] = await Promise.allSettled([
+          computeAwardsForSeason(hubLeagueId, sleeperLeagueId, season),
+          computeSeasonStatsForSeason(hubLeagueId, sleeperLeagueId, season),
+        ]);
+
+        if (statsResult.status === "rejected") {
+          console.error(`[compute-all] season stats ${season} failed:`, (statsResult.reason as any)?.message);
+        }
+
+        if (awardsResult.status === "rejected") {
+          throw awardsResult.reason;
+        }
+
+        results.push({ season, count: awardsResult.value });
       } catch (e: any) {
         // Log but keep going — a bad season shouldn't abort the whole run
         console.error(`[compute-all] season ${season} failed:`, e?.message);

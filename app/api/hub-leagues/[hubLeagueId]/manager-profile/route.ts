@@ -11,18 +11,54 @@ async function resolveParams(context: RouteContext) {
 }
 
 // GET  /api/hub-leagues/[hubLeagueId]/manager-profile
-export async function GET(_req: NextRequest, context: RouteContext) {
+// Supports ?profileId=XXX to view another member's profile (read-only).
+export async function GET(req: NextRequest, context: RouteContext) {
   try {
     const { hubLeagueId } = await resolveParams(context);
 
     const user = await getAuthUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const profile = await prisma.profile.findUnique({
+    // Verify the requester is a member/owner of this hub league
+    const requester = await prisma.profile.findUnique({
       where: { clerkId: user.id },
-      select: { id: true, firstName: true, lastName: true, profileImage: true, bio: true },
+      select: { id: true },
     });
-    if (!profile) return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+    if (!requester) return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+
+    const hubLeague = await prisma.hubLeague.findUnique({
+      where: { id: hubLeagueId },
+      select: { ownerId: true, members: { select: { profileId: true } } },
+    });
+    if (!hubLeague) return NextResponse.json({ error: "Hub league not found" }, { status: 404 });
+
+    const isRequesterOwner = requester.id === hubLeague.ownerId;
+    const isRequesterMember = hubLeague.members.some((m) => m.profileId === requester.id);
+    if (!isRequesterOwner && !isRequesterMember) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const requestedProfileId = req.nextUrl.searchParams.get("profileId");
+    const requestedSleeperUserId = req.nextUrl.searchParams.get("sleeperUserId");
+
+    let profile: { id: number; firstName: string; lastName: string; profileImage: string; bio: string | null } | null = null;
+
+    if (requestedSleeperUserId) {
+      profile = await prisma.profile.findFirst({
+        where: { sleeperProfileId: requestedSleeperUserId },
+        select: { id: true, firstName: true, lastName: true, profileImage: true, bio: true },
+      });
+    } else {
+      const targetProfileId = requestedProfileId ? parseInt(requestedProfileId, 10) : requester.id;
+      profile = await prisma.profile.findUnique({
+        where: { id: targetProfileId },
+        select: { id: true, firstName: true, lastName: true, profileImage: true, bio: true },
+      });
+    }
+
+    if (!profile) {
+      return NextResponse.json({ profile: null, managerProfile: null, favoritePlayer: null });
+    }
 
     const managerProfile = await prisma.hubLeagueManagerProfile.findUnique({
       where: { hubLeagueId_profileId: { hubLeagueId, profileId: profile.id } },

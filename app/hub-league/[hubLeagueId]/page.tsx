@@ -17,6 +17,7 @@ import {
   FiUser,
   FiCalendar,
   FiChevronRight,
+  FiRefreshCw,
 } from "react-icons/fi";
 
 type MemberProfile = {
@@ -87,7 +88,7 @@ const MOCK_RECENT_TRADES = [
 const ROLE_BADGE: Record<string, string> = {
   owner: "bg-[#F4D06F]/15 text-[#F4D06F] border-[#F4D06F]/30",
   "co-owner": "bg-purple-500/15 text-purple-300 border-purple-500/30",
-  member: "bg-zinc-700/40 text-zinc-300 border-zinc-600/40",
+  member: "bg-gray-100 text-gray-600 border-gray-200 dark:bg-zinc-700/40 dark:text-zinc-300 dark:border-zinc-600/40",
 };
 
 const SPORT_LABEL: Record<string, string> = {
@@ -108,6 +109,8 @@ export default function HubLeaguePage() {
     teams: { displayName: string; players: { name: string; position: string | null }[]; picks: string[] }[];
   };
 
+  type SleeperUser = { user_id: string; display_name: string; avatar: string | null; is_owner: boolean };
+
   const [hubLeague, setHubLeague] = useState<HubLeague | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -115,6 +118,12 @@ export default function HubLeaguePage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [commissionerName, setCommissionerName] = useState<string | null>(null);
   const [commissionerAvatar, setCommissionerAvatar] = useState<string | null>(null);
+  const [sleeperUsers, setSleeperUsers] = useState<SleeperUser[]>([]);
+  const [isOwner, setIsOwner] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncSuccess, setSyncSuccess] = useState(false);
   const [recentTrades, setRecentTrades] = useState<Trade[]>([]);
   const [matchupData, setMatchupData] = useState<MatchupData | null>(null);
   const [matchupLoaded, setMatchupLoaded] = useState(false);
@@ -146,6 +155,8 @@ export default function HubLeaguePage() {
 
         const data = await res.json();
         setHubLeague(data.hubLeague ?? null);
+        setIsOwner(data.isOwner ?? false);
+        if (data.lastSyncedAt) setLastSyncedAt(new Date(data.lastSyncedAt));
         if (data.hubLeague) {
           localStorage.setItem("recentHubLeague", JSON.stringify({ id: hubLeagueId, name: data.hubLeague.name }));
 
@@ -161,7 +172,8 @@ export default function HubLeaguePage() {
             ]);
 
             if (usersRes.ok) {
-              const users: { user_id: string; display_name: string; avatar: string | null; is_owner: boolean }[] = await usersRes.json();
+              const users: SleeperUser[] = await usersRes.json();
+              setSleeperUsers(users);
               const commUser = users.find((u) => u.is_owner);
               if (commUser) {
                 setCommissionerName(commUser.display_name);
@@ -235,6 +247,35 @@ export default function HubLeaguePage() {
     }
   };
 
+  const handleSync = async () => {
+    setSyncing(true);
+    setSyncError(null);
+    setSyncSuccess(false);
+    try {
+      const res = await fetch(`/api/hub-leagues/${hubLeagueId}/awards/compute-all`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Sync failed");
+      setLastSyncedAt(new Date());
+      setSyncSuccess(true);
+      setTimeout(() => setSyncSuccess(false), 4000);
+    } catch (e: any) {
+      setSyncError(e?.message ?? "Unknown error");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  function timeAgo(date: Date): string {
+    const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+    if (seconds < 60) return "just now";
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  }
+
   const shell = (children: React.ReactNode) => (
     <div className="hub-page">
       <div className="mx-auto max-w-6xl px-4 pb-24 pt-6">
@@ -248,11 +289,11 @@ export default function HubLeaguePage() {
   if (loading) {
     return shell(
       <div className="mt-6 space-y-4 animate-pulse">
-        <div className="h-8 w-48 rounded-xl bg-zinc-800/70" />
-        <div className="h-4 w-72 rounded-lg bg-zinc-800/50" />
+        <div className="h-8 w-48 rounded-xl bg-gray-200/80 dark:bg-zinc-800/70" />
+        <div className="h-4 w-72 rounded-lg bg-gray-200/60 dark:bg-zinc-800/50" />
         <div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-4">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-24 rounded-2xl bg-zinc-800/40" />
+            <div key={i} className="h-24 rounded-2xl bg-gray-200/50 dark:bg-zinc-800/40" />
           ))}
         </div>
       </div>
@@ -327,7 +368,7 @@ export default function HubLeaguePage() {
         {/* ─── Hero Header ──────────────────────────────────── */}
         <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div className="flex-1 min-w-0">
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-zinc-800/70 bg-black/40 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.15em] text-gray-500 dark:text-zinc-400">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white/60 dark:border-zinc-800/70 dark:bg-black/40 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.15em] text-gray-500 dark:text-zinc-400">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(74,222,128,0.7)]" />
               Hub League Overview
             </div>
@@ -345,7 +386,7 @@ export default function HubLeaguePage() {
             {/* Meta pills */}
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {sport && (
-                <span className="rounded-full border border-zinc-700/60 bg-zinc-900/60 px-2.5 py-0.5 text-[11px] font-medium text-gray-300 dark:text-zinc-300 uppercase tracking-wide">
+                <span className="rounded-full border border-gray-200 bg-gray-100/80 dark:border-zinc-700/60 dark:bg-zinc-900/60 px-2.5 py-0.5 text-[11px] font-medium text-gray-600 dark:text-zinc-300 uppercase tracking-wide">
                   {sport}
                 </span>
               )}
@@ -354,22 +395,22 @@ export default function HubLeaguePage() {
                   {latestSeason.season} Season
                 </span>
               )}
-              <span className="inline-flex items-center gap-1 rounded-full border border-zinc-700/60 bg-zinc-900/60 px-2.5 py-0.5 text-[11px] text-gray-500 dark:text-zinc-400">
+              <span className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-100/80 dark:border-zinc-700/60 dark:bg-zinc-900/60 px-2.5 py-0.5 text-[11px] text-gray-500 dark:text-zinc-400">
                 <FiUsers className="h-3 w-3" />
                 {hubLeague.members.length} member{hubLeague.members.length !== 1 ? "s" : ""}
               </span>
-              <span className="inline-flex items-center gap-1 rounded-full border border-zinc-700/60 bg-zinc-900/60 px-2.5 py-0.5 text-[11px] text-gray-500 dark:text-zinc-400">
+              <span className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-100/80 dark:border-zinc-700/60 dark:bg-zinc-900/60 px-2.5 py-0.5 text-[11px] text-gray-500 dark:text-zinc-400">
                 <FiCalendar className="h-3 w-3" />
                 {hubLeague.seasons.length} season{hubLeague.seasons.length !== 1 ? "s" : ""}
               </span>
-              <span className="rounded-full border border-zinc-700/60 bg-zinc-900/60 px-2.5 py-0.5 text-[11px] text-gray-400 dark:text-zinc-500">
+              <span className="rounded-full border border-gray-200 bg-gray-100/80 dark:border-zinc-700/60 dark:bg-zinc-900/60 px-2.5 py-0.5 text-[11px] text-gray-400 dark:text-zinc-500">
                 Est. {createdYear}
               </span>
             </div>
           </div>
 
           {/* Commissioner + Hub Owner card */}
-          <div className="shrink-0 rounded-xl border border-zinc-800/60 bg-zinc-900/50 px-4 py-3 flex flex-col gap-3 min-w-[180px]">
+          <div className="shrink-0 rounded-xl border border-gray-200 bg-white dark:border-zinc-800/60 dark:bg-zinc-900/50 px-4 py-3 flex flex-col gap-3 min-w-[200px]">
             {/* Sleeper Commissioner */}
             <div className="flex items-center gap-2.5">
               {commissionerAvatar ? (
@@ -404,12 +445,33 @@ export default function HubLeaguePage() {
                 height={32}
                 className="h-8 w-8 rounded-full border border-zinc-700 object-cover shrink-0"
               />
-              <div>
+              <div className="flex-1 min-w-0">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Hub Owner</p>
-                <p className="text-sm font-semibold text-zinc-100">
+                <p className="text-sm font-semibold text-zinc-100 truncate">
                   {hubLeague.owner.firstName} {hubLeague.owner.lastName}
                 </p>
+                {isOwner && (
+                  <p className="text-[10px] text-zinc-600 mt-0.5">
+                    {syncSuccess ? (
+                      <span className="text-emerald-500">Synced just now</span>
+                    ) : syncError ? (
+                      <span className="text-red-400">{syncError}</span>
+                    ) : (
+                      <>Synced: {lastSyncedAt ? timeAgo(lastSyncedAt) : "never"}</>
+                    )}
+                  </p>
+                )}
               </div>
+              {isOwner && (
+                <button
+                  onClick={handleSync}
+                  disabled={syncing}
+                  title="Sync Sleeper with Hub"
+                  className="shrink-0 rounded-lg border border-zinc-700 bg-zinc-800/60 p-1.5 text-zinc-400 transition-all hover:border-[#F4D06F]/40 hover:text-[#F4D06F] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <FiRefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -466,41 +528,78 @@ export default function HubLeaguePage() {
         {/* ─── Members + Blog + Recent Activity ───────────────── */}
         <div className="grid gap-4 grid-cols-6 mb-8 items-start">
 
-          {/* Members */}
+          {/* Managers — sourced from Sleeper, all league members regardless of Hub account */}
           <section className="col-span-1 hub-card p-5">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-gray-900 dark:text-zinc-100">Members</h2>
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-zinc-100">Managers</h2>
               <span className="rounded-full bg-gray-100 dark:bg-zinc-800/60 px-2 py-0.5 text-[10px] text-gray-500 dark:text-zinc-400">
-                {hubLeague.members.length} total
+                {sleeperUsers.length || hubLeague.members.length} total
               </span>
             </div>
-            {hubLeague.members.length === 0 ? (
-              <p className="text-xs text-gray-400 dark:text-zinc-500 italic">No members yet.</p>
+            {(sleeperUsers.length === 0 ? hubLeague.members : sleeperUsers).length === 0 ? (
+              <p className="text-xs text-gray-400 dark:text-zinc-500 italic">No managers yet.</p>
+            ) : sleeperUsers.length > 0 ? (
+              <ul className="space-y-2">
+                {sleeperUsers.map((u) => (
+                  <li key={u.user_id}>
+                    <Link
+                      href={`/hub-league/${hubLeagueId}/franchise?sleeperUserId=${u.user_id}`}
+                      className="hub-inner-card flex items-center gap-2 rounded-xl px-2.5 py-2 hover:bg-zinc-800/60 transition-colors"
+                    >
+                      {u.avatar ? (
+                        <Image
+                          src={`https://sleepercdn.com/avatars/thumbs/${u.avatar}`}
+                          alt={u.display_name}
+                          width={28}
+                          height={28}
+                          className="h-7 w-7 rounded-full border border-zinc-700 object-cover shrink-0"
+                        />
+                      ) : (
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-zinc-700 bg-zinc-800 text-[10px] font-bold text-zinc-400">
+                          {u.display_name[0]?.toUpperCase() ?? "?"}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-medium text-gray-900 dark:text-zinc-100 truncate">
+                          {u.display_name}
+                        </p>
+                        {u.is_owner && (
+                          <span className="mt-0.5 inline-block rounded-full border px-1.5 py-0 text-[9px] font-medium capitalize bg-[#F4D06F]/15 text-[#F4D06F] border-[#F4D06F]/30">
+                            commissioner
+                          </span>
+                        )}
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             ) : (
               <ul className="space-y-2">
                 {hubLeague.members.map((m) => {
                   const roleLower = m.role.toLowerCase();
                   const badgeClass = ROLE_BADGE[roleLower] ?? ROLE_BADGE["member"];
                   return (
-                    <li
-                      key={m.profileId}
-                      className="hub-inner-card flex items-center gap-2 rounded-xl px-2.5 py-2"
-                    >
-                      <Image
-                        src={m.profile.profileImage || "/default-profile.png"}
-                        alt={m.profile.username}
-                        width={28}
-                        height={28}
-                        className="h-7 w-7 rounded-full border border-zinc-700 object-cover shrink-0"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-medium text-gray-900 dark:text-zinc-100 truncate">
-                          {m.profile.firstName} {m.profile.lastName}
-                        </p>
-                        <span className={`mt-0.5 inline-block rounded-full border px-1.5 py-0 text-[9px] font-medium capitalize ${badgeClass}`}>
-                          {m.role}
-                        </span>
-                      </div>
+                    <li key={m.profileId}>
+                      <Link
+                        href={`/hub-league/${hubLeagueId}/franchise?profileId=${m.profileId}`}
+                        className="hub-inner-card flex items-center gap-2 rounded-xl px-2.5 py-2 hover:bg-zinc-800/60 transition-colors"
+                      >
+                        <Image
+                          src={m.profile.profileImage || "/default-profile.png"}
+                          alt={m.profile.username}
+                          width={28}
+                          height={28}
+                          className="h-7 w-7 rounded-full border border-zinc-700 object-cover shrink-0"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium text-gray-900 dark:text-zinc-100 truncate">
+                            {m.profile.firstName} {m.profile.lastName}
+                          </p>
+                          <span className={`mt-0.5 inline-block rounded-full border px-1.5 py-0 text-[9px] font-medium capitalize ${badgeClass}`}>
+                            {m.role}
+                          </span>
+                        </div>
+                      </Link>
                     </li>
                   );
                 })}
