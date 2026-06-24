@@ -1,6 +1,7 @@
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 generator client {
@@ -25,11 +26,17 @@ model Profile {
   authoredPosts        HubLeaguePost[]           @relation("AuthoredPosts")
   postLikes            HubLeaguePostLike[]       @relation("PostLikes")
   postComments         HubLeaguePostComment[]    @relation("PostComments")
+  forumPosts           ForumPost[]               @relation("AuthoredForumPosts")
+  forumPostLikes       ForumPostLike[]           @relation("ForumPostLikes")
+  forumPostComments    ForumPostComment[]        @relation("ForumPostComments")
+  playerChatMessages   PlayerChat[]              @relation("PlayerChatMessages")
   awards               HubLeagueAward[]          @relation("AwardedProfiles")
   seasonStats          HubLeagueSeasonStat[]     @relation("SeasonStats")
   wallets              Wallet[]                  @relation("ProfileWallets")
   createdBets          Bet[]                     @relation("BetCreator")
   takenBets            Bet[]                     @relation("BetTaker")
+  startSitVotes        StartSitVote[]            @relation("StartSitVotes")
+  predictionStat       UserPredictionStat?       @relation("PredictionStat")
 }
 
 model sleeperProfile {
@@ -51,6 +58,7 @@ model SleeperPlayer {
   rawJson   Json     // store entire Sleeper payload if you want
   updatedAt DateTime @updatedAt
   maddenStats  maddenPlayer[]
+  chatMessages PlayerChat[]
 }
 
 model HubLeague {
@@ -310,6 +318,60 @@ model Wallet {
   @@index([profileId])
 }
 
+// ─── Global Forum ─────────────────────────────────────────────────────────────
+
+model ForumPost {
+  id          String   @id @default(cuid())
+  authorId    Int
+  tag         String   // "Trade Advice" | "Waiver Wire" | "Start/Sit" | "Draft" | "Trash Talk" | "Playoffs" | "News" | "General"
+  title       String
+  body        String
+  excerpt     String
+  readTime    String
+  mediaUrls   String[] @default([])
+  publishedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  author   Profile            @relation("AuthoredForumPosts", fields: [authorId], references: [id])
+  likes    ForumPostLike[]
+  comments ForumPostComment[]
+
+  @@index([authorId])
+  @@index([publishedAt])
+  @@index([tag])
+}
+
+model ForumPostLike {
+  id        Int      @id @default(autoincrement())
+  postId    String
+  profileId Int
+  value     Int      // 1 = upvote, -1 = downvote
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  post    ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  profile Profile   @relation("ForumPostLikes", fields: [profileId], references: [id])
+
+  @@unique([postId, profileId])
+  @@index([postId])
+}
+
+model ForumPostComment {
+  id        String   @id @default(cuid())
+  postId    String
+  authorId  Int
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  post   ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author Profile   @relation("ForumPostComments", fields: [authorId], references: [id])
+
+  @@index([postId])
+  @@index([authorId])
+}
+
 model Bet {
   id          String    @id @default(cuid())
   hubLeagueId String
@@ -334,4 +396,66 @@ model Bet {
   @@index([hubLeagueId])
   @@index([creatorId])
   @@index([takerId])
+}
+
+// ─── Start / Sit Community Voting ────────────────────────────────────────────
+
+model StartSitMatchup {
+  id        String         @id @default(cuid())
+  playerKey String         // sorted sleeper IDs joined: "id1_id2_id3"
+  week      Int
+  season    String
+  createdAt DateTime       @default(now())
+  votes     StartSitVote[]
+
+  @@unique([playerKey, week, season])
+  @@index([week, season])
+}
+
+model StartSitVote {
+  id             String          @id @default(cuid())
+  matchupId      String
+  matchup        StartSitMatchup @relation(fields: [matchupId], references: [id], onDelete: Cascade)
+  profileId      Int
+  profile        Profile         @relation("StartSitVotes", fields: [profileId], references: [id])
+  chosenPlayerId String
+  createdAt      DateTime        @default(now())
+
+  correct        Boolean?        // null = ungraded, true/false = resolved after week ends
+
+  @@unique([matchupId, profileId])
+  @@index([matchupId])
+  @@index([profileId])
+  @@index([profileId, correct])
+}
+
+model UserPredictionStat {
+  id           String   @id @default(cuid())
+  profileId    Int      @unique
+  totalVotes   Int      @default(0)
+  correctPicks Int      @default(0)
+  streak       Int      @default(0)
+  bestStreak   Int      @default(0)
+  tier         String   @default("rookie") // "rookie" | "analyst" | "expert" | "legend"
+  updatedAt    DateTime @updatedAt
+
+  profile Profile @relation("PredictionStat", fields: [profileId], references: [id])
+
+  @@index([tier, correctPicks])
+}
+
+// ─── Player Discussion Chat ────────────────────────────────────────────────────
+
+model PlayerChat {
+  id        String   @id @default(cuid())
+  playerId  String
+  authorId  Int
+  body      String
+  createdAt DateTime @default(now())
+
+  player SleeperPlayer @relation(fields: [playerId], references: [id])
+  author Profile       @relation("PlayerChatMessages", fields: [authorId], references: [id])
+
+  @@index([playerId, createdAt])
+  @@index([authorId])
 }

@@ -9,8 +9,12 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: "stfmgtnbrlwaywbswwpd.supabase.co",
-      }
+        hostname: "ougpvfsrwlnhfdaxwfle.supabase.co",
+      },
+      {
+        protocol: 'https',
+        hostname: "sleepercdn.com",
+      },
     ],
   }
 };

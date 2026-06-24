@@ -7,10 +7,10 @@ import {
 } from '@/utils/maddenActions';
 
 const getStatColor = (value: number) => {
-  if (value >= 90) return 'text-emerald-400';
-  if (value >= 80) return 'text-amber-300';
-  if (value >= 70) return 'text-orange-400';
-  return 'text-red-400';
+  if (value >= 90) return 'text-emerald-600 dark:text-emerald-400';
+  if (value >= 80) return 'text-amber-600 dark:text-amber-300';
+  if (value >= 70) return 'text-orange-600 dark:text-orange-400';
+  return 'text-red-600 dark:text-red-400';
 };
 
 const getBarColor = (value: number) => {
@@ -35,13 +35,13 @@ function StatGrid({ stats }: { stats: Record<string, number> }) {
       {entries.map(([key, value]) => (
         <div
           key={key}
-          className="bg-zinc-900/80 border border-zinc-800 rounded-xl p-2.5 text-center hover:border-zinc-700 transition"
+          className="bg-white dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 rounded-xl p-2.5 text-center hover:border-zinc-300 dark:hover:border-zinc-700 transition"
         >
           <p className="text-[9px] text-zinc-500 tracking-wide mb-1 leading-tight">
             {formatStatLabel(key)}
           </p>
           <p className={`text-sm font-bold ${getStatColor(value)}`}>{value}</p>
-          <div className="mt-1.5 h-1 w-full rounded-full bg-zinc-800 overflow-hidden">
+          <div className="mt-1.5 h-1 w-full rounded-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-500 ${getBarColor(value)}`}
               style={{ width: `${Math.min(value, 100)}%` }}
@@ -102,7 +102,7 @@ export const MaddenStatsContainer: React.FC<MaddenStatsContainerProps> = ({
 
   if (!sleeperPlayerId) {
     return (
-      <p className="text-[10px] text-zinc-600 italic">
+      <p className="text-[10px] text-zinc-500 italic">
         Select a player to view Madden stats.
       </p>
     );
@@ -114,10 +114,10 @@ export const MaddenStatsContainer: React.FC<MaddenStatsContainerProps> = ({
         {[...Array(8)].map((_, i) => (
           <div
             key={i}
-            className="bg-zinc-900/80 border border-zinc-800 rounded-xl p-2.5 text-center animate-pulse"
+            className="bg-white dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 rounded-xl p-2.5 text-center animate-pulse"
           >
-            <div className="h-2 w-8 bg-zinc-800 rounded mx-auto mb-2" />
-            <div className="h-4 w-6 bg-zinc-800 rounded mx-auto" />
+            <div className="h-2 w-8 bg-zinc-200 dark:bg-zinc-800 rounded mx-auto mb-2" />
+            <div className="h-4 w-6 bg-zinc-200 dark:bg-zinc-800 rounded mx-auto" />
           </div>
         ))}
       </div>
@@ -125,12 +125,12 @@ export const MaddenStatsContainer: React.FC<MaddenStatsContainerProps> = ({
   }
 
   if (error) {
-    return <p className="text-[10px] text-red-400">{error}</p>;
+    return <p className="text-[10px] text-red-500 dark:text-red-400">{error}</p>;
   }
 
   if (!maddenPlayer) {
     return (
-      <p className="text-[10px] text-zinc-600 italic">
+      <p className="text-[10px] text-zinc-500 italic">
         No Madden stats found for this player.
       </p>
     );
@@ -141,12 +141,12 @@ export const MaddenStatsContainer: React.FC<MaddenStatsContainerProps> = ({
   return (
     <div className="space-y-3">
       {/* Overall + meta */}
-      <div className="flex items-center justify-between bg-zinc-900/80 border border-zinc-800 rounded-xl p-4">
+      <div className="flex items-center justify-between bg-white dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4">
         <div className="flex flex-col">
           <span className="text-[10px] text-zinc-500 uppercase tracking-wider">
             {maddenPlayer.position ?? '—'} · {maddenPlayer.team ?? '—'}
           </span>
-          <span className="text-[10px] text-zinc-600 mt-0.5">
+          <span className="text-[10px] text-zinc-400 dark:text-zinc-600 mt-0.5">
             {maddenPlayer.full_name ?? maddenPlayer.id} · Wk {maddenPlayer.week} {maddenPlayer.year}
           </span>
         </div>
@@ -165,7 +165,7 @@ export const MaddenStatsContainer: React.FC<MaddenStatsContainerProps> = ({
       {/* Shared stats */}
       {maddenPlayer.shared_stats && (
         <div className="space-y-1.5">
-          <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Attributes</p>
+          <p className="text-[9px] text-zinc-500 uppercase tracking-wider">Attributes</p>
           <StatGrid stats={maddenPlayer.shared_stats} />
         </div>
       )}
@@ -173,7 +173,7 @@ export const MaddenStatsContainer: React.FC<MaddenStatsContainerProps> = ({
       {/* Position-specific stats */}
       {posStats && (
         <div className="space-y-1.5">
-          <p className="text-[9px] text-zinc-600 uppercase tracking-wider">
+          <p className="text-[9px] text-zinc-500 uppercase tracking-wider">
             {maddenPlayer.position} Stats
           </p>
           <StatGrid stats={posStats} />

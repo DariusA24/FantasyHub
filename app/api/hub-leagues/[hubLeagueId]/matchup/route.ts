@@ -91,7 +91,7 @@ export async function GET(_req: NextRequest, ctx: RouteContext) {
     // Round 2: matchups + projections in parallel
     const [matchups, projectionsRes] = await Promise.all([
       getSleeperMatchups(sleeperLeagueId, week),
-      fetch(`${SLEEPER}/projections/nfl/${state.season}/${week}?season_type=regular`, PROJ_CACHE),
+      fetch(`${SLEEPER}/projections/nfl/regular/${state.season}/${week}`, PROJ_CACHE),
     ]);
 
     if (!matchups) {

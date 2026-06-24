@@ -10,6 +10,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.105.0",
     "@clerk/nextjs": "^6.28.0",
     "@prisma/adapter-pg": "^7.0.0",
     "@prisma/client": "^6.18.0",

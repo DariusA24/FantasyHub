@@ -81,7 +81,7 @@ export function LeagueCard({
     <button
       type="button"
       onClick={handleClick}
-      className="group w-full text-left flex flex-col justify-between rounded-xl border border-zinc-800 bg-zinc-900/70 px-3 py-4 shadow-md shadow-black/30 hover:border-amber-400/70 hover:bg-zinc-900 transition-colors duration-200"
+      className="group w-full text-left flex flex-col justify-between rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/70 px-3 py-4 shadow-sm dark:shadow-md dark:shadow-black/30 hover:border-amber-400/70 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors duration-200"
     >
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
@@ -93,11 +93,11 @@ export function LeagueCard({
             className="h-16 w-16 rounded-md object-cover flex-shrink-0"
           />
           <div className="min-w-0">
-            <h4 className="text-lg font-semibold text-[#F4D06F] line-clamp-1">
+            <h4 className="text-lg font-semibold text-amber-600 dark:text-[#F4D06F] line-clamp-1">
               {name}
             </h4>
-            <p className="mt-1 text-sm text-zinc-400">
-              Season <span className="font-medium text-zinc-200">{season}</span>
+            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+              Season <span className="font-medium text-zinc-800 dark:text-zinc-200">{season}</span>
               {' · '}
               <span className="uppercase tracking-wide text-xs text-zinc-500">
                 {sport}
@@ -118,7 +118,7 @@ export function LeagueCard({
               </span>
 
               {record && (
-                <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-100">
+                <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-100">
                   {record}
                 </span>
               )}
@@ -127,7 +127,7 @@ export function LeagueCard({
         </div>
 
         <div className="flex items-center">
-          <ChevronRight className="w-5 h-5 text-zinc-500 group-hover:text-zinc-300 transition-colors duration-150" />
+          <ChevronRight className="w-5 h-5 text-zinc-400 group-hover:text-zinc-700 dark:group-hover:text-zinc-300 transition-colors duration-150" />
         </div>
       </div>
     </button>

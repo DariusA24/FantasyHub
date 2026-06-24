@@ -100,28 +100,28 @@ export function LeagueHubModal({ league, isOpen, onClose }: LeagueHubModalProps)
   const alreadyHasHubLeague = hubLeagues.length > 0;
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/70 ${navigatingId ? "cursor-wait" : ""}`}>
-      <div className="w-full max-w-lg rounded-2xl bg-[#050711] border border-[#1d212b] p-6 shadow-xl">
+    <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/60 dark:bg-black/70 backdrop-blur-sm ${navigatingId ? "cursor-wait" : ""}`}>
+      <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-[#050711] border border-zinc-200 dark:border-[#1d212b] p-6 shadow-xl">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-semibold text-[#F4D06F]">
+          <h3 className="text-xl font-semibold text-amber-600 dark:text-[#F4D06F]">
             {league.name}
           </h3>
           <div className="flex items-center gap-2">
             {createSuccess && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600/20 text-emerald-300 px-2 py-0.5 text-[11px]">
-                <span className="inline-block h-3 w-3 rounded-full bg-emerald-400" />
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 px-2 py-0.5 text-[11px]">
+                <span className="inline-block h-3 w-3 rounded-full bg-emerald-500 dark:bg-emerald-400" />
                 Created
               </span>
             )}
             {createError && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-red-600/20 text-red-300 px-2 py-0.5 text-[11px]">
-                <span className="inline-block h-3 w-3 rounded-full bg-red-400" />
+              <span className="inline-flex items-center gap-1 rounded-full bg-red-500/15 text-red-600 dark:text-red-300 px-2 py-0.5 text-[11px]">
+                <span className="inline-block h-3 w-3 rounded-full bg-red-500 dark:bg-red-400" />
                 Failed
               </span>
             )}
             <button
               onClick={onClose}
-              className="text-zinc-400 hover:text-zinc-100 text-sm"
+              className="text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-100 text-sm transition-colors"
             >
               Close
             </button>
@@ -129,27 +129,27 @@ export function LeagueHubModal({ league, isOpen, onClose }: LeagueHubModalProps)
         </div>
 
         {createErrorMessage && (
-          <p className="mb-2 text-xs text-red-300 break-words">
+          <p className="mb-2 text-xs text-red-600 dark:text-red-300 break-words">
             {createErrorMessage}
           </p>
         )}
 
-        <p className="text-sm text-zinc-400 mb-4">
+        <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
           Season{" "}
-          <span className="font-medium text-zinc-200">{league.season}</span>{" "}
+          <span className="font-medium text-zinc-800 dark:text-zinc-200">{league.season}</span>{" "}
           ·{" "}
-          <span className="uppercase text-xs text-zinc-500">
+          <span className="uppercase text-xs text-zinc-400 dark:text-zinc-500">
             {league.sport}
           </span>
         </p>
 
-        <div className="rounded-xl border border-zinc-700/80 bg-zinc-900/40 p-4 space-y-3">
+        <div className="rounded-xl border border-zinc-200 dark:border-zinc-700/80 bg-zinc-50 dark:bg-zinc-900/40 p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <h4 className="text-sm font-semibold text-zinc-200">
+            <h4 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
               Hub Leagues for this team
             </h4>
             <button
-              className="text-xs px-2 py-1 rounded-md bg-[#F4D06F] text-black font-medium disabled:opacity-60"
+              className="text-xs px-2 py-1 rounded-md bg-amber-500 dark:bg-[#F4D06F] text-white dark:text-black font-medium disabled:opacity-60 hover:bg-amber-600 dark:hover:bg-[#f0c84a] transition-colors"
               onClick={handleCreateHubLeague}
               disabled={creating || alreadyHasHubLeague}
             >
@@ -158,11 +158,11 @@ export function LeagueHubModal({ league, isOpen, onClose }: LeagueHubModalProps)
           </div>
 
           {loading ? (
-            <p className="text-xs text-zinc-400">Loading hub leagues…</p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">Loading hub leagues…</p>
           ) : hubLeagues.length === 0 ? (
-            <p className="text-xs text-zinc-400">
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
               No hub leagues yet for this Sleeper league (league_id:{" "}
-              <span className="font-mono">{league.league_id}</span>). Create one to
+              <span className="font-mono text-zinc-700 dark:text-zinc-300">{league.league_id}</span>). Create one to
               start a blog, history, and more.
             </p>
           ) : (
@@ -170,10 +170,10 @@ export function LeagueHubModal({ league, isOpen, onClose }: LeagueHubModalProps)
               {hubLeagues.map((hub) => (
                 <li
                   key={hub.id}
-                  className="flex items-center justify-between gap-2 rounded-md border border-zinc-700 bg-zinc-900/70 px-3 py-2"
+                  className="flex items-center justify-between gap-2 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900/70 px-3 py-2"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-zinc-100 truncate">
+                    <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
                       {hub.name}
                     </p>
                     {hub.ownerUsername && (
@@ -182,7 +182,7 @@ export function LeagueHubModal({ league, isOpen, onClose }: LeagueHubModalProps)
                       </p>
                     )}
                     {hub.description && (
-                      <p className="text-xs text-zinc-400 line-clamp-2">
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2">
                         {hub.description}
                       </p>
                     )}
@@ -190,7 +190,7 @@ export function LeagueHubModal({ league, isOpen, onClose }: LeagueHubModalProps)
                   <div className="flex items-center gap-2">
                     {hub.isMember ? (
                       <button
-                        className={`inline-flex items-center gap-1.5 text-xs text-[#F4D06F] disabled:opacity-60 ${navigatingId === hub.id ? "cursor-wait" : ""}`}
+                        className={`inline-flex items-center gap-1.5 text-xs text-amber-600 dark:text-[#F4D06F] disabled:opacity-60 ${navigatingId === hub.id ? "cursor-wait" : ""}`}
                         disabled={navigatingId === hub.id}
                         onClick={async () => {
                           setNavigatingId(hub.id);
@@ -216,7 +216,7 @@ export function LeagueHubModal({ league, isOpen, onClose }: LeagueHubModalProps)
                       </button>
                     ) : (
                       <button
-                        className="text-[11px] px-2 py-0.5 rounded-md border border-emerald-500 text-emerald-300 hover:bg-emerald-500/10 disabled:opacity-60"
+                        className="text-[11px] px-2 py-0.5 rounded-md border border-emerald-500/60 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-500/10 disabled:opacity-60 transition-colors"
                         onClick={() => handleJoinHubLeague(hub.id)}
                         disabled={joiningId === hub.id}
                       >

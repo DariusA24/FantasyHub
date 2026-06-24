@@ -11,66 +11,33 @@ import { FiTrendingUp, FiTrendingDown, FiMinus, FiAlertCircle } from "react-icon
 const playerThumb = (id: string) =>
   `https://sleepercdn.com/content/nfl/players/thumb/${id}.jpg`;
 
-// Mock stats — replace with real projections API when available
-const MOCK_STATS: Record<string, { proj: number; fpts: number; posRank: number; rankDelta: number }> = {};
-const mockStat = (id: string, position?: string | null) => {
-  if (MOCK_STATS[id]) return MOCK_STATS[id];
-  const posRank = Math.floor(Math.random() * 20) + 1;
-  const rankDelta = Math.floor(Math.random() * 7) - 3; // -3 to +3
-  return {
-    proj: parseFloat((Math.random() * 25 + 5).toFixed(1)),
-    fpts: parseFloat((Math.random() * 25 + 5).toFixed(1)),
-    posRank,
-    rankDelta,
-  };
-};
 
 function TrendBadge({ position, posRank, trend }: { position?: string | null; posRank?: number | null; trend?: number | null }) {
   const pos = position ?? "?";
-  if (!posRank) return <span className="text-xs text-zinc-600">—</span>;
+  if (!posRank) return <span className="text-xs text-zinc-500">—</span>;
   const up = (trend ?? 0) > 0;
   const flat = (trend ?? 0) === 0;
   return (
     <div className="flex items-center gap-1">
-      <span className="text-xs font-bold text-zinc-300">{pos}{posRank}</span>
+      <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">{pos}{posRank}</span>
       {!flat && (
-        <span className={`inline-flex items-center gap-0.5 text-[10px] font-semibold ${up ? "text-emerald-400" : "text-red-400"}`}>
+        <span className={`inline-flex items-center gap-0.5 text-[10px] font-semibold ${up ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
           {up ? <FiTrendingUp className="h-3 w-3" /> : <FiTrendingDown className="h-3 w-3" />}
         </span>
       )}
-      {flat && <FiMinus className="h-3 w-3 text-zinc-600" />}
+      {flat && <FiMinus className="h-3 w-3 text-zinc-500" />}
     </div>
   );
 }
 
-// Mock injury/bye data — replace with real API
-const MOCK_INJURY: Record<string, "Q" | "D" | "IR" | "O"> = {};
-const mockInjury = (id: string): "Q" | "D" | "IR" | "O" | null => {
-  const roll = parseInt(id.slice(-1), 10);
-  if (roll === 1) return "Q";
-  if (roll === 2) return "D";
-  if (roll === 3) return "IR";
-  return null;
-};
-const mockBye = (id: string): number | null => {
-  const roll = parseInt(id.slice(-2), 10);
-  return roll % 5 === 0 ? (roll % 14) + 1 : null;
-};
-
-const INJURY_STYLE: Record<string, string> = {
-  Q:  "bg-yellow-500/15 text-yellow-400 border-yellow-500/30",
-  D:  "bg-orange-500/15 text-orange-400 border-orange-500/30",
-  IR: "bg-red-500/15 text-red-400 border-red-500/30",
-  O:  "bg-red-700/15 text-red-500 border-red-700/30",
-};
 
 const POSITION_COLOR: Record<string, string> = {
-  QB: "text-red-400",
-  RB: "text-emerald-400",
-  WR: "text-blue-400",
-  TE: "text-orange-400",
-  K:  "text-purple-400",
-  DEF: "text-zinc-400",
+  QB:  "text-red-600 dark:text-red-400",
+  RB:  "text-emerald-600 dark:text-emerald-400",
+  WR:  "text-blue-600 dark:text-blue-400",
+  TE:  "text-orange-600 dark:text-orange-400",
+  K:   "text-purple-600 dark:text-purple-400",
+  DEF: "text-zinc-600 dark:text-zinc-400",
 };
 
 type LeagueSettings = {
@@ -96,6 +63,12 @@ type SleeperRoster = {
   owner_id: string;
   players: string[];
   starters?: string[];
+  settings?: {
+    wins?: number;
+    losses?: number;
+    fpts?: number;
+    fpts_decimal?: number;
+  };
 };
 
 export type SleeperPlayer = {
@@ -135,6 +108,9 @@ export default function LeaguePage() {
   const [isStatsOpen, setIsStatsOpen] = useState(false);
   const [posFilter, setPosFilter] = useState<string>("ALL");
   const [dynastyMap, setDynastyMap] = useState<Record<string, { positionRank: number; overallRank: number; value: number; trend30Day: number } | null>>({});
+  const [projMap, setProjMap]   = useState<Record<string, number>>({});
+  const [statsMap, setStatsMap] = useState<Record<string, number>>({});
+  const [projLoading, setProjLoading] = useState(false);
 
   useEffect(() => {
     const fetchLeagueData = async () => {
@@ -308,6 +284,50 @@ export default function LeaguePage() {
       .catch((err) => console.error('[Roster] dynasty rankings error:', err));
   }, [leagueSettings]);
 
+  // Fetch weekly projections + last week's actual stats
+  useEffect(() => {
+    if (!leagueSettings) return;
+    const rec = leagueSettings.scoring_settings?.rec ?? 1;
+    const ptsKey = rec >= 1 ? "pts_ppr" : rec >= 0.5 ? "pts_half_ppr" : "pts_std";
+
+    setProjLoading(true);
+    fetch("/api/start-sit/nfl-state")
+      .then((r) => r.json())
+      .then(async (state: { week: number; display_week: number; season: string; season_type: string }) => {
+        const week   = Math.max(state.display_week ?? 1, 1);
+        const season = state.season;
+
+        const fetches: [Promise<Response>, Promise<Response> | null] = [
+          fetch(`/api/start-sit/projections?week=${week}&season=${season}`),
+          week > 1 ? fetch(`/api/start-sit/stats?week=${week - 1}&season=${season}`) : null,
+        ];
+        const [projRes, statsRes] = await Promise.all(fetches);
+
+        if (projRes?.ok) {
+          const d = await projRes.json();
+          if (d.projections) {
+            const m: Record<string, number> = {};
+            for (const [id, e] of Object.entries(d.projections as Record<string, any>)) {
+              m[id] = (e as any)[ptsKey] ?? (e as any).pts_ppr ?? 0;
+            }
+            setProjMap(m);
+          }
+        }
+        if (statsRes?.ok) {
+          const d = await statsRes.json();
+          if (d.stats) {
+            const m: Record<string, number> = {};
+            for (const [id, e] of Object.entries(d.stats as Record<string, any>)) {
+              m[id] = (e as any)[ptsKey] ?? (e as any).pts_ppr ?? 0;
+            }
+            setStatsMap(m);
+          }
+        }
+      })
+      .catch((err) => console.error('[Roster] projections error:', err))
+      .finally(() => setProjLoading(false));
+  }, [leagueSettings]);
+
   const userMap = useMemo(() => {
     const m: Record<string, SleeperLeagueUser> = {};
     for (const u of leagueUsers) m[u.user_id] = u;
@@ -381,9 +401,9 @@ export default function LeaguePage() {
       {/* Header */}
       <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <div className="inline-flex items-center gap-2 rounded-full bg-zinc-900/70 border border-zinc-700/70 px-3 py-1 mb-2">
-            <span className="h-2 w-2 rounded-full bg-emerald-400" />
-            <span className="text-xs font-medium uppercase tracking-wide text-gray-300 dark:text-zinc-300">
+          <div className="inline-flex items-center gap-2 rounded-full bg-zinc-100 dark:bg-zinc-900/70 border border-zinc-300 dark:border-zinc-700/70 px-3 py-1 mb-2">
+            <span className="h-2 w-2 rounded-full bg-emerald-500 dark:bg-emerald-400" />
+            <span className="text-xs font-medium uppercase tracking-wide text-zinc-600 dark:text-zinc-300">
               Active League
             </span>
           </div>
@@ -418,7 +438,7 @@ export default function LeaguePage() {
               {chips.map((c) => (
                 <div key={c.label} className="flex items-center gap-1.5">
                   <span className="text-[10px] text-zinc-500">{c.label}</span>
-                  <span className={`text-xs font-bold ${c.highlight ? "text-[#F4D06F]" : "text-zinc-100"}`}>{c.value}</span>
+                  <span className={`text-xs font-bold ${c.highlight ? "text-amber-600 dark:text-[#F4D06F]" : "text-zinc-800 dark:text-zinc-100"}`}>{c.value}</span>
                 </div>
               ))}
             </div>
@@ -446,24 +466,24 @@ export default function LeaguePage() {
                     onClick={() => { setViewingRosterId(roster.roster_id); setPosFilter("ALL"); }}
                     className={`shrink-0 flex items-center gap-2 rounded-xl border px-3 py-2 transition-all text-left ${
                       isSelected
-                        ? "border-[#F4D06F]/50 bg-[#F4D06F]/10"
-                        : "border-zinc-800/60 bg-zinc-900/40 hover:border-zinc-700 hover:bg-zinc-800/40"
+                        ? "border-amber-500/50 dark:border-[#F4D06F]/50 bg-amber-500/10 dark:bg-[#F4D06F]/10"
+                        : "border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/40 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800/40"
                     }`}
                   >
                     {avatarUrl ? (
                       <img
                         src={avatarUrl}
                         alt={teamName}
-                        className="h-7 w-7 rounded-full object-cover bg-zinc-800 border border-zinc-700/60 shrink-0"
+                        className="h-7 w-7 rounded-full object-cover bg-zinc-200 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700/60 shrink-0"
                         onError={(e) => { (e.target as HTMLImageElement).src = "/default-profile.png"; }}
                       />
                     ) : (
-                      <div className="h-7 w-7 rounded-full bg-zinc-800 border border-zinc-700/60 shrink-0 flex items-center justify-center text-[10px] text-zinc-500">
+                      <div className="h-7 w-7 rounded-full bg-zinc-200 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700/60 shrink-0 flex items-center justify-center text-[10px] text-zinc-500">
                         {teamName.charAt(0).toUpperCase()}
                       </div>
                     )}
                     <div className="min-w-0">
-                      <p className={`text-xs font-semibold truncate max-w-[100px] ${isSelected ? "text-[#F4D06F]" : "text-zinc-200"}`}>
+                      <p className={`text-xs font-semibold truncate max-w-[100px] ${isSelected ? "text-amber-600 dark:text-[#F4D06F]" : "text-zinc-700 dark:text-zinc-200"}`}>
                         {teamName}
                         {isMe && <span className="ml-1 text-[9px] text-zinc-500">(you)</span>}
                       </p>
@@ -479,8 +499,9 @@ export default function LeaguePage() {
         {/* ─── Roster summary bar ─── */}
         {(() => {
           const allPlayers = displayedRoster?.players ?? [];
-          const totalProj = allPlayers.reduce((sum, id) => sum + mockStat(id, player[id]?.position).proj, 0);
-          const totalFpts = allPlayers.reduce((sum, id) => sum + mockStat(id, player[id]?.position).fpts, 0);
+          const startersSet = new Set(displayedRoster?.starters ?? []);
+          const totalProj = [...startersSet].reduce((sum, id) => sum + (projMap[id] ?? 0), 0);
+          const seasonFpts = (displayedRoster?.settings?.fpts ?? 0) + (displayedRoster?.settings?.fpts_decimal ?? 0) / 100;
           const posCounts = allPlayers.reduce<Record<string, number>>((acc, id) => {
             const pos = player[id]?.position ?? "?";
             acc[pos] = (acc[pos] ?? 0) + 1;
@@ -489,10 +510,10 @@ export default function LeaguePage() {
           return (
             <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[
-                { label: "Total Proj", value: totalProj.toFixed(1), color: "text-zinc-100" },
-                { label: "Season FPTS", value: totalFpts.toFixed(1), color: "text-[#F4D06F]" },
-                { label: "Roster Size", value: allPlayers.length, color: "text-zinc-100" },
-                { label: "Positions", value: Object.entries(posCounts).map(([p, n]) => `${p}×${n}`).join(" · "), color: "text-zinc-400" },
+                { label: projLoading ? "Loading proj…" : "Starters Proj", value: projLoading ? "—" : totalProj.toFixed(1), color: "text-zinc-800 dark:text-zinc-100" },
+                { label: "Season FPTS", value: seasonFpts > 0 ? seasonFpts.toFixed(1) : "—", color: "text-amber-600 dark:text-[#F4D06F]" },
+                { label: "Roster Size", value: allPlayers.length, color: "text-zinc-800 dark:text-zinc-100" },
+                { label: "Positions", value: Object.entries(posCounts).map(([p, n]) => `${p}×${n}`).join(" · "), color: "text-zinc-500 dark:text-zinc-400" },
               ].map((s) => (
                 <div key={s.label} className="hub-card px-4 py-3 text-center">
                   <p className={`text-base font-black ${s.color} truncate`}>{s.value}</p>
@@ -511,8 +532,8 @@ export default function LeaguePage() {
               onClick={() => setPosFilter(pos)}
               className={`rounded-full border px-3 py-1 text-[11px] font-semibold transition-all ${
                 posFilter === pos
-                  ? "border-[#F4D06F]/50 bg-[#F4D06F]/10 text-[#F4D06F]"
-                  : "border-zinc-800/60 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700"
+                  ? "border-amber-500/50 dark:border-[#F4D06F]/50 bg-amber-500/10 dark:bg-[#F4D06F]/10 text-amber-600 dark:text-[#F4D06F]"
+                  : "border-zinc-300 dark:border-zinc-800/60 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:border-zinc-400 dark:hover:border-zinc-700"
               }`}
             >
               {pos}
@@ -522,12 +543,12 @@ export default function LeaguePage() {
 
         {/* ─── Viewing banner ─── */}
         {!isViewingOwn && viewedTeamName && (
-          <div className="mb-4 flex items-center gap-2 rounded-xl border border-zinc-700/60 bg-zinc-900/50 px-4 py-2">
-            <span className="text-xs text-zinc-400">Viewing roster of</span>
-            <span className="text-xs font-bold text-[#F4D06F]">{viewedTeamName}</span>
+          <div className="mb-4 flex items-center gap-2 rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-zinc-900/50 px-4 py-2">
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">Viewing roster of</span>
+            <span className="text-xs font-bold text-amber-600 dark:text-[#F4D06F]">{viewedTeamName}</span>
             <button
               onClick={() => { setViewingRosterId(myRoster?.roster_id ?? null); setPosFilter("ALL"); }}
-              className="ml-auto text-[10px] text-zinc-500 hover:text-zinc-300 underline"
+              className="ml-auto text-[10px] text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 underline"
             >
               Back to my roster
             </button>
@@ -558,47 +579,42 @@ export default function LeaguePage() {
                   <span />
                   <span />
                   <span className="text-right">Proj</span>
-                  <span className="text-right">FPTS</span>
+                  <span className="text-right">Last Wk</span>
                   <span className="text-right">Trend</span>
                 </div>
                 <ul className="divide-y divide-zinc-800/40 text-sm">
                   {starters.filter(id => posFilter === "ALL" || player[id]?.position === posFilter).map((playerId) => {
                     const p = player[playerId];
                     const displayName = p?.full_name || p?.player_id || playerId;
-                    const stats = mockStat(playerId, p?.position);
+                    const proj    = projMap[playerId];
+                    const lastWk  = statsMap[playerId];
                     const posColor = POSITION_COLOR[p?.position ?? ""] ?? "text-zinc-400";
-                    const injury = mockInjury(playerId);
-                    const bye = mockBye(playerId);
                     const dynasty = dynastyMap[playerId];
                     return (
                       <li
                         key={playerId}
                         onClick={() => { setSelectedPlayerId(playerId); setIsStatsOpen(true); }}
-                        className="grid grid-cols-[36px_1fr_48px_48px_72px] items-center gap-x-3 py-2 px-2 -mx-2 rounded-lg hover:bg-zinc-900/40 transition-colors cursor-pointer"
+                        className="grid grid-cols-[36px_1fr_48px_48px_72px] items-center gap-x-3 py-2 px-2 -mx-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-900/40 transition-colors cursor-pointer"
                       >
                         <img
                           src={playerThumb(playerId)}
                           alt={displayName}
-                          className="h-9 w-9 rounded-full object-cover bg-zinc-800 border border-zinc-700/60"
+                          className="h-9 w-9 rounded-full object-cover bg-zinc-200 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700/60"
                           onError={(e) => { (e.target as HTMLImageElement).src = "/default-profile.png"; }}
                         />
                         <div className="min-w-0">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <p className="font-medium text-gray-900 dark:text-zinc-100 truncate">{displayName}</p>
-                            {injury && (
-                              <span className={`shrink-0 rounded border px-1 py-0 text-[9px] font-bold ${INJURY_STYLE[injury]}`}>{injury}</span>
-                            )}
-                            {bye && !injury && (
-                              <span className="shrink-0 rounded border border-zinc-700/50 bg-zinc-800/40 px-1 py-0 text-[9px] text-zinc-500">BYE {bye}</span>
-                            )}
-                          </div>
+                          <p className="font-medium text-gray-900 dark:text-zinc-100 truncate">{displayName}</p>
                           <p className="text-[11px]">
                             {p?.position && <span className={`mr-1.5 font-bold ${posColor}`}>{p.position}</span>}
                             {p?.team && <span className="text-zinc-500">{p.team}</span>}
                           </p>
                         </div>
-                        <p className="text-xs font-semibold text-zinc-300 text-right">{stats.proj}</p>
-                        <p className="text-xs font-semibold text-[#F4D06F] text-right">{stats.fpts}</p>
+                        <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 text-right">
+                          {proj != null ? proj.toFixed(1) : <span className="text-zinc-500">—</span>}
+                        </p>
+                        <p className="text-xs font-semibold text-amber-600 dark:text-[#F4D06F] text-right">
+                          {lastWk != null ? lastWk.toFixed(1) : <span className="text-zinc-500">—</span>}
+                        </p>
                         <div className="flex justify-end">
                           <TrendBadge position={p?.position} posRank={dynasty?.positionRank ?? null} trend={dynasty?.trend30Day ?? null} />
                         </div>
@@ -639,22 +655,23 @@ export default function LeaguePage() {
                   <span className="text-right">Trend</span>
                 </div>
                 <ul className="divide-y divide-zinc-800/40 text-sm">
-                  {bench.map((playerId) => {
+                  {bench.filter(id => posFilter === "ALL" || player[id]?.position === posFilter).map((playerId) => {
                     const p = player[playerId];
                     const displayName = p?.full_name || p?.player_id || playerId;
-                    const stats = mockStat(playerId);
+                    const proj   = projMap[playerId];
+                    const lastWk = statsMap[playerId];
                     const posColor = POSITION_COLOR[p?.position ?? ""] ?? "text-zinc-400";
                     const dynasty = dynastyMap[playerId];
                     return (
                       <li
                         key={playerId}
                         onClick={() => { setSelectedPlayerId(playerId); setIsStatsOpen(true); }}
-                        className="grid grid-cols-[36px_1fr_48px_48px_72px] items-center gap-x-3 py-2 px-2 -mx-2 rounded-lg hover:bg-zinc-900/40 transition-colors cursor-pointer"
+                        className="grid grid-cols-[36px_1fr_48px_48px_72px] items-center gap-x-3 py-2 px-2 -mx-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-900/40 transition-colors cursor-pointer"
                       >
                         <img
                           src={playerThumb(playerId)}
                           alt={displayName}
-                          className="h-9 w-9 rounded-full object-cover bg-zinc-800 border border-zinc-700/60"
+                          className="h-9 w-9 rounded-full object-cover bg-zinc-200 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700/60"
                           onError={(e) => { (e.target as HTMLImageElement).src = "/default-profile.png"; }}
                         />
                         <div className="min-w-0">
@@ -664,8 +681,12 @@ export default function LeaguePage() {
                             {p?.team && <span className="text-zinc-500">{p.team}</span>}
                           </p>
                         </div>
-                        <p className="text-xs font-semibold text-zinc-300 text-right">{stats.proj}</p>
-                        <p className="text-xs font-semibold text-[#F4D06F] text-right">{stats.fpts}</p>
+                        <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 text-right">
+                          {proj != null ? proj.toFixed(1) : <span className="text-zinc-500">—</span>}
+                        </p>
+                        <p className="text-xs font-semibold text-amber-600 dark:text-[#F4D06F] text-right">
+                          {lastWk != null ? lastWk.toFixed(1) : <span className="text-zinc-500">—</span>}
+                        </p>
                         <div className="flex justify-end">
                           <TrendBadge position={p?.position} posRank={dynasty?.positionRank ?? null} trend={dynasty?.trend30Day ?? null} />
                         </div>

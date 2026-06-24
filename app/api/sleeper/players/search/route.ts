@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
       where: {
         full_name: { contains: q, mode: "insensitive" },
         position: { in: ["QB", "RB", "WR", "TE", "K"] },
+        team: { not: null },
       },
       select: { id: true, full_name: true, position: true, team: true },
       orderBy: { full_name: "asc" },

@@ -175,6 +175,14 @@ function ordinal(n: number): string {
   return s[(v - 20) % 10] || s[v] || s[0];
 }
 
+const TIER_STYLES: Record<string, { bg: string; border: string; text: string }> = {
+  Legend:  { bg: "bg-[#F4D06F]/10",  border: "border-[#F4D06F]/40",  text: "text-[#F4D06F]"  },
+  Elite:   { bg: "bg-purple-500/10", border: "border-purple-500/40", text: "text-purple-400" },
+  Pro:     { bg: "bg-blue-500/10",   border: "border-blue-500/40",   text: "text-blue-400"   },
+  Veteran: { bg: "bg-emerald-500/10",border: "border-emerald-500/40",text: "text-emerald-400"},
+  Rookie:  { bg: "bg-zinc-500/10",   border: "border-zinc-500/40",   text: "text-zinc-400"   },
+};
+
 const TREND_STYLE: Record<string, string> = {
   up:   "text-emerald-600 dark:text-emerald-400",
   flat: "text-gray-500 dark:text-zinc-400",
@@ -551,6 +559,8 @@ export default function MyFranchisePage() {
   const totalPF = completedSeasonStats.reduce((s, ss) => s + ss.pointsFor, 0);
   const totalPA = completedSeasonStats.reduce((s, ss) => s + ss.pointsAgainst, 0);
 
+  const rankStyle = hubRank ? (TIER_STYLES[hubRank.tier] ?? TIER_STYLES.Rookie) : null;
+
   return pageShell(
     <>
       {/* ─── Header ─────────────────────────────────── */}
@@ -732,25 +742,15 @@ export default function MyFranchisePage() {
         <p className="mt-4 text-lg font-bold hub-text-primary">{displayName}</p>
 
         {/* FantasyHub Rank badge */}
-        {hubRank && hubRank.tier !== "Unranked" && (() => {
-          const tierStyles: Record<string, { bg: string; border: string; text: string }> = {
-            Legend:  { bg: "bg-[#F4D06F]/10",  border: "border-[#F4D06F]/40",  text: "text-[#F4D06F]"  },
-            Elite:   { bg: "bg-purple-500/10", border: "border-purple-500/40", text: "text-purple-400" },
-            Pro:     { bg: "bg-blue-500/10",   border: "border-blue-500/40",   text: "text-blue-400"   },
-            Veteran: { bg: "bg-emerald-500/10",border: "border-emerald-500/40",text: "text-emerald-400"},
-            Rookie:  { bg: "bg-zinc-500/10",   border: "border-zinc-500/40",   text: "text-zinc-400"   },
-          };
-          const s = tierStyles[hubRank.tier] ?? tierStyles.Rookie;
-          return (
-            <div className={`mt-2 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 ${s.bg} ${s.border}`}>
-              <span className={`text-[11px] font-bold uppercase tracking-widest ${s.text}`}>{hubRank.tier}</span>
-              {hubRank.score !== null && (
-                <span className={`text-[11px] opacity-60 ${s.text}`}>· {hubRank.score} avg</span>
-              )}
-              <span className={`text-[10px] opacity-50 ${s.text}`}>({hubRank.seasons}s)</span>
-            </div>
-          );
-        })()}
+        {hubRank && hubRank.tier !== "Unranked" && rankStyle && (
+          <div className={`mt-2 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 ${rankStyle.bg} ${rankStyle.border}`}>
+            <span className={`text-[11px] font-bold uppercase tracking-widest ${rankStyle.text}`}>{hubRank.tier}</span>
+            {hubRank.score !== null && (
+              <span className={`text-[11px] opacity-60 ${rankStyle.text}`}>· {hubRank.score} avg</span>
+            )}
+            <span className={`text-[10px] opacity-50 ${rankStyle.text}`}>({hubRank.seasons}s)</span>
+          </div>
+        )}
 
         {mp.bio ? (
           <p className="mt-2 max-w-sm text-center text-sm leading-relaxed hub-text-secondary">{mp.bio}</p>

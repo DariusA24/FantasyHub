@@ -51,10 +51,10 @@ type DynastyRankingContainerProps = {
 };
 
 const TIER_STYLE: Record<number, string> = {
-  1: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
-  2: 'bg-[#F4D06F]/15 text-[#F4D06F] border-[#F4D06F]/30',
-  3: 'bg-orange-500/15 text-orange-400 border-orange-500/30',
-  4: 'bg-zinc-700/40 text-zinc-400 border-zinc-600/40',
+  1: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
+  2: 'bg-amber-500/15 text-amber-600 dark:text-[#F4D06F] border-amber-500/30',
+  3: 'bg-orange-500/15 text-orange-600 dark:text-orange-400 border-orange-500/30',
+  4: 'bg-zinc-100 dark:bg-zinc-700/40 text-zinc-500 dark:text-zinc-400 border-zinc-300 dark:border-zinc-600/40',
 };
 
 export const DynastyRankingContainer: React.FC<DynastyRankingContainerProps> = ({
@@ -97,19 +97,19 @@ export const DynastyRankingContainer: React.FC<DynastyRankingContainerProps> = (
   if (loading) {
     return (
       <div className="mt-2 space-y-2 animate-pulse">
-        <div className="h-16 rounded-xl bg-zinc-800/60" />
-        <div className="h-10 rounded-xl bg-zinc-800/40" />
+        <div className="h-16 rounded-xl bg-zinc-200 dark:bg-zinc-800/60" />
+        <div className="h-10 rounded-xl bg-zinc-200 dark:bg-zinc-800/40" />
       </div>
     );
   }
 
   if (error) {
-    return <p className="text-[10px] text-red-400 mt-1">{error}</p>;
+    return <p className="text-[10px] text-red-500 dark:text-red-400 mt-1">{error}</p>;
   }
 
   if (!entry) {
     return (
-      <p className="text-[10px] text-zinc-600 italic mt-1">
+      <p className="text-[10px] text-zinc-500 italic mt-1">
         No dynasty ranking found for this player.
       </p>
     );
@@ -117,7 +117,11 @@ export const DynastyRankingContainer: React.FC<DynastyRankingContainerProps> = (
 
   const trendUp = entry.trend30Day > 0;
   const trendFlat = entry.trend30Day === 0;
-  const trendColor = trendUp ? 'text-emerald-400' : trendFlat ? 'text-zinc-500' : 'text-red-400';
+  const trendColor = trendUp
+    ? 'text-emerald-600 dark:text-emerald-400'
+    : trendFlat
+      ? 'text-zinc-500'
+      : 'text-red-600 dark:text-red-400';
   const trendLabel = trendFlat ? '—' : `${trendUp ? '+' : ''}${entry.trend30Day}`;
   const tier = entry.player.maybeTier;
   const tierStyle = tier ? (TIER_STYLE[tier] ?? TIER_STYLE[4]) : TIER_STYLE[4];
@@ -125,12 +129,12 @@ export const DynastyRankingContainer: React.FC<DynastyRankingContainerProps> = (
   return (
     <div className="mt-2 space-y-2">
       {/* Main value card */}
-      <div className="flex items-center justify-between rounded-xl bg-zinc-900/80 border border-zinc-800 px-4 py-3">
+      <div className="flex items-center justify-between rounded-xl bg-white dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 px-4 py-3">
         <div>
           <p className="text-[10px] text-zinc-500 uppercase tracking-wider mb-0.5">
             Dynasty Value
           </p>
-          <p className="text-2xl font-black text-[#F4D06F]">
+          <p className="text-2xl font-black text-amber-600 dark:text-[#F4D06F]">
             {entry.value.toLocaleString()}
           </p>
         </div>
@@ -141,20 +145,20 @@ export const DynastyRankingContainer: React.FC<DynastyRankingContainerProps> = (
             </span>
           )}
           <p className={`text-xs font-semibold ${trendColor}`}>
-            {trendLabel} <span className="text-zinc-600 font-normal">30d</span>
+            {trendLabel} <span className="text-zinc-400 dark:text-zinc-600 font-normal">30d</span>
           </p>
         </div>
       </div>
 
       {/* Rank grid */}
       <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-xl bg-zinc-900/80 border border-zinc-800 p-3 text-center">
+        <div className="rounded-xl bg-white dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 p-3 text-center">
           <p className="text-[9px] text-zinc-500 uppercase tracking-wider mb-1">Overall Rank</p>
-          <p className="text-lg font-bold text-zinc-100">#{entry.overallRank}</p>
+          <p className="text-lg font-bold text-zinc-900 dark:text-zinc-100">#{entry.overallRank}</p>
         </div>
-        <div className="rounded-xl bg-zinc-900/80 border border-zinc-800 p-3 text-center">
+        <div className="rounded-xl bg-white dark:bg-zinc-900/80 border border-zinc-200 dark:border-zinc-800 p-3 text-center">
           <p className="text-[9px] text-zinc-500 uppercase tracking-wider mb-1">{entry.player.position} Rank</p>
-          <p className="text-lg font-bold text-zinc-100">#{entry.positionRank}</p>
+          <p className="text-lg font-bold text-zinc-900 dark:text-zinc-100">#{entry.positionRank}</p>
         </div>
       </div>
     </div>
