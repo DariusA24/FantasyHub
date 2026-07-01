@@ -46,7 +46,7 @@ export function LeagueGrid({ leagues, leagueRecords, onLeagueClick }: LeagueGrid
               status={league.status}
               total_rosters={league.total_rosters}
               record={record ? `${record.wins}-${record.losses}-${record.ties}` : undefined}
-              onClick={() => onLeagueClick?.(league)}
+              onClick={onLeagueClick ? () => onLeagueClick(league) : undefined}
             />
           </div>
         );

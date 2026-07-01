@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import type { ComparePlayer } from "./CompareCard";
 
 const POS_STYLE: Record<string, string> = {
@@ -9,6 +10,45 @@ const POS_STYLE: Record<string, string> = {
   WR:  "text-blue-600 dark:text-blue-400 bg-blue-500/10 border-blue-500/30",
   TE:  "text-orange-600 dark:text-orange-400 bg-orange-500/10 border-orange-500/30",
 };
+
+const POS_RING: Record<string, string> = {
+  QB:  "ring-red-400/60 dark:ring-red-500/50",
+  RB:  "ring-emerald-400/60 dark:ring-emerald-500/50",
+  WR:  "ring-blue-400/60 dark:ring-blue-500/50",
+  TE:  "ring-orange-400/60 dark:ring-orange-500/50",
+};
+
+const POS_FALLBACK_BG: Record<string, string> = {
+  QB:  "bg-red-500/15 text-red-500 dark:text-red-400",
+  RB:  "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+  WR:  "bg-blue-500/15 text-blue-600 dark:text-blue-400",
+  TE:  "bg-orange-500/15 text-orange-600 dark:text-orange-400",
+};
+
+function PlayerAvatar({ sleeperId, name, position }: { sleeperId: string; name: string; position: string }) {
+  const [imgError, setImgError] = useState(false);
+  const initials = name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+  const ring     = POS_RING[position]     ?? "ring-zinc-300 dark:ring-zinc-700";
+  const fallback = POS_FALLBACK_BG[position] ?? "bg-zinc-100 dark:bg-zinc-800 text-zinc-500";
+
+  return (
+    <div className={`relative h-20 w-20 rounded-full ring-2 ${ring} overflow-hidden shrink-0`}>
+      {!imgError ? (
+        <Image
+          src={`https://sleepercdn.com/content/nfl/players/thumb/${sleeperId}.jpg`}
+          alt={name}
+          fill
+          className="object-cover object-top"
+          onError={() => setImgError(true)}
+        />
+      ) : (
+        <div className={`h-full w-full flex items-center justify-center text-lg font-black ${fallback}`}>
+          {initials}
+        </div>
+      )}
+    </div>
+  );
+}
 
 type VoteState = { votes: Record<string, number>; myVote: string | null; total: number } | null;
 
@@ -93,6 +133,7 @@ export function GateMatchup({
       setVoteState({ votes: {}, myVote: chosenId, total: 0 });
     } finally {
       setVoting(false);
+      onUnlocked();
     }
   };
 
@@ -168,12 +209,29 @@ export function GateMatchup({
                   : "border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/20"
               }`}
             >
-              {/* Player info */}
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <span className={`inline-block rounded-full border px-1.5 py-px text-[9px] font-bold mb-1.5 ${posClass}`}>
-                    {player.position}
-                  </span>
+              {/* Avatar */}
+              <div className="flex flex-col items-center gap-2.5 pt-1">
+                <PlayerAvatar
+                  sleeperId={player.sleeperId}
+                  name={player.name}
+                  position={player.position}
+                />
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-1.5 mb-0.5">
+                    <span className={`rounded-full border px-1.5 py-px text-[9px] font-bold ${posClass}`}>
+                      {player.position}
+                    </span>
+                    {isMyVote && (
+                      <span className="rounded-full border border-violet-500/40 bg-violet-500/10 px-1.5 py-px text-[9px] font-bold text-violet-600 dark:text-violet-400">
+                        Your pick
+                      </span>
+                    )}
+                    {isLeading && !isMyVote && (
+                      <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-px text-[9px] font-bold text-amber-600 dark:text-amber-400">
+                        Leading
+                      </span>
+                    )}
+                  </div>
                   <h3 className="text-base font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50 leading-tight">
                     {player.name}
                   </h3>
@@ -186,16 +244,6 @@ export function GateMatchup({
                     )}
                   </p>
                 </div>
-                {isMyVote && (
-                  <span className="shrink-0 rounded-full border border-violet-500/40 bg-violet-500/10 px-2 py-px text-[9px] font-bold text-violet-600 dark:text-violet-400">
-                    Your pick
-                  </span>
-                )}
-                {isLeading && !isMyVote && (
-                  <span className="shrink-0 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-px text-[9px] font-bold text-amber-600 dark:text-amber-400">
-                    Leading
-                  </span>
-                )}
               </div>
 
               {/* Projection */}
@@ -261,22 +309,20 @@ export function GateMatchup({
         })}
       </div>
 
-      {/* Unlock button (appears after voting) */}
-      {hasVoted && (
+      {/* Skip / hint row */}
+      <div className="mt-6 flex flex-col items-center gap-1.5">
+        {!hasVoted && (
+          <p className="text-[11px] text-zinc-400 dark:text-zinc-600">
+            Your vote is anonymous · takes 1 second
+          </p>
+        )}
         <button
           onClick={onUnlocked}
-          className="mt-8 inline-flex items-center gap-2 rounded-xl bg-zinc-900 dark:bg-zinc-50 px-6 py-3 text-sm font-bold text-zinc-50 dark:text-zinc-900 hover:opacity-90 transition-opacity"
+          className="text-[11px] text-zinc-400 dark:text-zinc-600 hover:text-zinc-600 dark:hover:text-zinc-400 underline underline-offset-2 transition-colors"
         >
-          Unlock the comparison tool →
+          Skip to tool
         </button>
-      )}
-
-      {/* VS divider hint (before voting) */}
-      {!hasVoted && (
-        <p className="mt-6 text-[11px] text-zinc-400 dark:text-zinc-600">
-          Your vote is anonymous · takes 1 second
-        </p>
-      )}
+      </div>
     </div>
   );
 }

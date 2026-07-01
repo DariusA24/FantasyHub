@@ -53,6 +53,8 @@ export const fetchProfileImage = async () => {
      console.log(user);   
      const rawData = Object.fromEntries(formData);
      const validatedFields = validateWithZodSchema(profileSchema, rawData);
+     const existingUsername = await prisma.profile.findFirst({ where: { username: validatedFields.username } });
+     if (existingUsername) throw new Error('That username is already taken. Please choose a different one.');
      await prisma.profile.create({
        data:{
           clerkId: user.id,
@@ -66,15 +68,12 @@ export const fetchProfileImage = async () => {
        privateMetadata: {
           hasProfile: true,
        }
-    
      });
-     console.log('Updated Clerk metadata'); // Debug log
-      return { message: 'Profile created successfully!' };
-    } catch (error) {
-   
-       return renderError(error); 
+     return { message: 'Profile created successfully!' };
+    } catch (error: any) {
+       if (error?.code === 'P2002') return { message: 'That username is already taken. Please choose a different one.' };
+       return renderError(error);
     }
-    redirect('/'); 
    };
 
   export const updateProfileAction = async (

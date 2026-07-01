@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import Modal from './modal';
 import SleeperConfirmModal from './SleeperConfirmModal';
-import { searchSleeperProfile, linkSleeperProfileToUser } from '@/utils/sleeperActions'; // server action
+import { searchSleeperProfile, linkSleeperProfileToUser } from '@/utils/sleeperActions';
+import { FiSearch, FiX } from 'react-icons/fi';
 
 type SleeperSearchModalProps = {
   isOpen: boolean;
@@ -23,16 +24,11 @@ function SleeperSearchModal({ isOpen, onClose }: SleeperSearchModalProps) {
     setSearchError(null);
     try {
       const result = await searchSleeperProfile(sleeperProfile.trim());
-      // action returns the user object directly
       setFoundSleeperProfile(result);
-      console.log('Found Sleeper Profile:', result);
-      // do NOT close yet – let user confirm
     } catch (err) {
       setFoundSleeperProfile(null);
       setSearchError(
-        err instanceof Error
-          ? err.message
-          : 'Could not find Sleeper profile. Please check the username/ID.'
+        err instanceof Error ? err.message : 'Could not find that Sleeper profile. Check the username and try again.'
       );
     } finally {
       setIsSearching(false);
@@ -41,32 +37,25 @@ function SleeperSearchModal({ isOpen, onClose }: SleeperSearchModalProps) {
 
   const handleConfirmProfile = async () => {
     if (!foundSleeperProfile) return;
-
     try {
       setIsLinking(true);
       await linkSleeperProfileToUser(foundSleeperProfile);
-
-      // Reset local state so the modal is clean the next time it opens
       setSleeperProfile('');
       setFoundSleeperProfile(null);
       setSearchError(null);
-
-      // This will close the modal in the parent (HomePage)
-      onClose(); // parent will refetch and keep it closed
+      onClose();
     } finally {
       setIsLinking(false);
     }
   };
 
   const handleRejectProfile = () => {
-    // Clear and let user search again
     setFoundSleeperProfile(null);
     setSearchError(null);
   };
 
   if (!isOpen) return null;
 
-  // When we have a found profile, show the confirm modal instead of the search UI
   if (foundSleeperProfile) {
     return (
       <SleeperConfirmModal
@@ -80,51 +69,67 @@ function SleeperSearchModal({ isOpen, onClose }: SleeperSearchModalProps) {
 
   return (
     <Modal onClose={isSearching ? () => {} : onClose}>
-      <div className="bg-zinc-900 text-zinc-300 p-6 rounded-lg shadow-lg border-2 border-blue-800 relative min-h-[160px] flex items-center justify-center">
-        {!isSearching && (
-          <button
-            type="button"
-            className="absolute right-3 top-3 text-zinc-400 hover:text-white"
-            onClick={onClose}
-          >
-            ✕
-          </button>
-        )}
+      <div className="w-[90vw] max-w-md rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 p-6 shadow-xl dark:shadow-[0_24px_60px_rgba(0,0,0,0.85)] backdrop-blur-md">
+
+        {/* Header */}
+        <div className="mb-5 flex items-start justify-between gap-3">
+          <div>
+            <div className="mb-1 inline-flex items-center gap-1.5 rounded-full border border-zinc-200 dark:border-zinc-700/60 bg-zinc-100 dark:bg-zinc-900/60 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(74,222,128,0.7)]" />
+              Sleeper
+            </div>
+            <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
+              Link your Sleeper account
+            </h2>
+            <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+              Enter your Sleeper username to connect your leagues.
+            </p>
+          </div>
+          {!isSearching && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="shrink-0 flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors"
+            >
+              <FiX className="h-4 w-4" />
+            </button>
+          )}
+        </div>
 
         {isSearching ? (
-          <div className="flex flex-col items-center justify-center gap-3">
-            {/* Tailwind spinner */}
-            <span
-              aria-hidden="true"
-              className="w-10 h-10 rounded-full border-4 border-zinc-600 border-t-amber-400 animate-spin"
-            />
-            <p className="text-sm text-zinc-300">Searching Sleeper profile...</p>
+          <div className="flex flex-col items-center justify-center gap-3 py-6">
+            <span className="h-9 w-9 rounded-full border-[3px] border-zinc-200 dark:border-zinc-800 border-t-amber-500 dark:border-t-[#F4D06F] animate-spin" />
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">Searching Sleeper…</p>
           </div>
         ) : (
-          <div className="w-full">
-            <h2 className="text-xl font-bold mb-4 text-amber-300">Set Sleeper Profile</h2>
-            <input
-              type="text"
-              placeholder="Enter Sleeper username or ID"
-              className="input input-bordered w-full mb-2 bg-zinc-800 text-white placeholder-gray-400"
-              value={sleeperProfile}
-              onChange={(e) => setSleeperProfile(e.target.value)}
-              disabled={isSearching}
-            />
+          <>
+            {/* Input */}
+            <div className="relative mb-3">
+              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 dark:text-zinc-500 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Sleeper username or ID"
+                value={sleeperProfile}
+                onChange={(e) => setSleeperProfile(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearchSleeperProfile()}
+                className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700/60 bg-zinc-50 dark:bg-zinc-900/60 py-2.5 pl-9 pr-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 outline-none focus:border-amber-500/60 focus:ring-2 focus:ring-amber-500/20 transition"
+              />
+            </div>
+
             {searchError && (
-              <p className="text-sm text-red-500 mb-2">
-                {searchError || 'Unable to find sleeper profile.'}
+              <p className="mb-3 rounded-lg border border-red-200 dark:border-red-500/20 bg-red-50 dark:bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-400">
+                {searchError}
               </p>
             )}
 
             <button
-              className="btn btn-primary bg-blue-600 hover:bg-blue-700 text-white w-full"
               onClick={handleSearchSleeperProfile}
-              disabled={isSearching}
+              disabled={!sleeperProfile.trim()}
+              className="w-full rounded-xl bg-amber-500 dark:bg-[#F4D06F] px-4 py-2.5 text-sm font-semibold text-white dark:text-zinc-950 shadow-sm hover:bg-amber-600 dark:hover:bg-[#f7da8b] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {isSearching ? 'Searching...' : 'Search'}
+              Search
             </button>
-          </div>
+          </>
         )}
       </div>
     </Modal>

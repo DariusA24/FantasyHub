@@ -11,32 +11,16 @@ async function resolveParams(context: RouteContext) {
 }
 
 // GET  /api/hub-leagues/[hubLeagueId]/manager-profile
-// Supports ?profileId=XXX to view another member's profile (read-only).
+// Supports ?profileId=XXX or ?sleeperUserId=XXX to view any member's profile (public read).
 export async function GET(req: NextRequest, context: RouteContext) {
   try {
     const { hubLeagueId } = await resolveParams(context);
 
-    const user = await getAuthUser();
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    // Verify the requester is a member/owner of this hub league
-    const requester = await prisma.profile.findUnique({
-      where: { clerkId: user.id },
-      select: { id: true },
-    });
-    if (!requester) return NextResponse.json({ error: "Profile not found" }, { status: 404 });
-
     const hubLeague = await prisma.hubLeague.findUnique({
       where: { id: hubLeagueId },
-      select: { ownerId: true, members: { select: { profileId: true } } },
+      select: { ownerId: true },
     });
     if (!hubLeague) return NextResponse.json({ error: "Hub league not found" }, { status: 404 });
-
-    const isRequesterOwner = requester.id === hubLeague.ownerId;
-    const isRequesterMember = hubLeague.members.some((m) => m.profileId === requester.id);
-    if (!isRequesterOwner && !isRequesterMember) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
 
     const requestedProfileId = req.nextUrl.searchParams.get("profileId");
     const requestedSleeperUserId = req.nextUrl.searchParams.get("sleeperUserId");
@@ -48,10 +32,17 @@ export async function GET(req: NextRequest, context: RouteContext) {
         where: { sleeperProfileId: requestedSleeperUserId },
         select: { id: true, firstName: true, lastName: true, profileImage: true, bio: true },
       });
-    } else {
-      const targetProfileId = requestedProfileId ? parseInt(requestedProfileId, 10) : requester.id;
+    } else if (requestedProfileId) {
       profile = await prisma.profile.findUnique({
-        where: { id: targetProfileId },
+        where: { id: parseInt(requestedProfileId, 10) },
+        select: { id: true, firstName: true, lastName: true, profileImage: true, bio: true },
+      });
+    } else {
+      // No target specified — look up the authenticated user's own profile
+      const user = await getAuthUser();
+      if (!user) return NextResponse.json({ profile: null, managerProfile: null, favoritePlayer: null });
+      profile = await prisma.profile.findUnique({
+        where: { clerkId: user.id },
         select: { id: true, firstName: true, lastName: true, profileImage: true, bio: true },
       });
     }

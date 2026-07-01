@@ -52,6 +52,10 @@ export async function getLeagueMatchups(leagueId: string, week: number) {
   );
 }
 
+export async function getLeagueUsers(leagueId: string) {
+  return sleeperRequest<any[]>(`/league/${encodeURIComponent(leagueId)}/users`, TTL.rosters);
+}
+
 export async function getAllNflPlayers(): Promise<Record<string, any>> {
   return sleeperRequest<Record<string, any>>('/players/nfl', TTL.players);
 }

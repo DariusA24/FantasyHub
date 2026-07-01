@@ -247,6 +247,9 @@ export async function GET(req: NextRequest) {
       include: {
         hubLeague: {
           include: {
+            owner: {
+              select: { username: true },
+            },
             members: {
               select: {
                 profileId: true,
@@ -275,16 +278,26 @@ export async function GET(req: NextRequest) {
       const isMember =
         !!profileId &&
         hub.members.some((m) => m.profileId === profileId);
+      const isOwner = !!profileId && hub.ownerId === profileId;
       return {
         ...season,
         hubLeague: {
           ...hub,
           isMember,
+          isOwner,
         },
       };
     });
 
-    return NextResponse.json({ hubLeagueSeasons: seasonsWithMembership });
+    // Deduplicate: each hub league may have multiple seasons linked; show it once
+    const seen = new Set<string>();
+    const deduped = seasonsWithMembership.filter((s) => {
+      if (seen.has(s.hubLeague.id)) return false;
+      seen.add(s.hubLeague.id);
+      return true;
+    });
+
+    return NextResponse.json({ hubLeagueSeasons: deduped });
   } catch (e: any) {
     console.error("GET /api/hub-leagues error:", e);
     return NextResponse.json(

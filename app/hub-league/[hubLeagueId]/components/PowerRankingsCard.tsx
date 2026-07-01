@@ -7,7 +7,7 @@ import type { PowerRankingTeam } from "./types";
 type Props = {
   loaded: boolean;
   rankings: PowerRankingTeam[];
-  hubLeagueId: string;
+  hubLeagueId?: string | null;
 };
 
 export function PowerRankingsCard({ loaded, rankings, hubLeagueId }: Props) {
@@ -66,12 +66,14 @@ export function PowerRankingsCard({ loaded, rankings, hubLeagueId }: Props) {
         </ul>
       )}
 
-      <Link
-        href={`/hub-league/${hubLeagueId}/power-rankings`}
-        className="mt-3 flex w-full items-center justify-center gap-1 rounded-xl border border-dashed border-zinc-800/60 py-2 text-[11px] text-gray-300 dark:text-zinc-600 hover:border-zinc-700/60 hover:text-gray-500 dark:hover:text-zinc-400 transition"
-      >
-        Full Power Rankings <FiChevronRight className="h-3 w-3" />
-      </Link>
+      {hubLeagueId && (
+        <Link
+          href={`/hub-league/${hubLeagueId}/power-rankings`}
+          className="mt-3 flex w-full items-center justify-center gap-1 rounded-xl border border-dashed border-zinc-800/60 py-2 text-[11px] text-gray-300 dark:text-zinc-600 hover:border-zinc-700/60 hover:text-gray-500 dark:hover:text-zinc-400 transition"
+        >
+          Full Power Rankings <FiChevronRight className="h-3 w-3" />
+        </Link>
+      )}
     </section>
   );
 }

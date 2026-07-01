@@ -18,6 +18,8 @@ import {
   FiEdit2,
   FiCheck,
   FiX,
+  FiPlus,
+  FiTrash2,
 } from "react-icons/fi";
 
 type UserProfile = {
@@ -62,9 +64,56 @@ export default function GMPage() {
   const [editBio, setEditBio] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // ESPN
+  type EspnLeagueRow = { id: string; leagueId: string; season: string; name: string | null; teamCount: number | null };
+  const [espnLeagues, setEspnLeagues]   = useState<EspnLeagueRow[]>([]);
+  const [espnLeagueId, setEspnLeagueId] = useState("");
+  const [espnSeason, setEspnSeason]     = useState(new Date().getFullYear().toString());
+  const [espnAdding, setEspnAdding]     = useState(false);
+  const [espnError, setEspnError]       = useState<string | null>(null);
+
   const hasFetched = useRef(false);
   const routerRef = useRef(router);
   useEffect(() => { routerRef.current = router; });
+
+  const loadEspnLeagues = useCallback(async () => {
+    const res = await fetch("/api/espn/leagues");
+    if (res.ok) {
+      const data = await res.json();
+      setEspnLeagues(data.leagues ?? []);
+    }
+  }, []);
+
+  const addEspnLeague = async () => {
+    if (!espnLeagueId.trim()) return;
+    setEspnAdding(true);
+    setEspnError(null);
+    try {
+      const res = await fetch("/api/espn/leagues", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leagueId: espnLeagueId.trim(), season: espnSeason }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setEspnError(data.error ?? "Failed to add league"); return; }
+      setEspnLeagues((prev) => [...prev, data.league]);
+      setEspnLeagueId("");
+    } catch {
+      setEspnError("Could not reach ESPN — check the league ID");
+    } finally {
+      setEspnAdding(false);
+    }
+  };
+
+  const removeEspnLeague = async (leagueId: string, season: string) => {
+    await fetch("/api/espn/leagues", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ leagueId, season }),
+    });
+    setEspnLeagues((prev) => prev.filter((l) => !(l.leagueId === leagueId && l.season === season)));
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -127,8 +176,9 @@ export default function GMPage() {
     if (isLoaded && isSignedIn && !hasFetched.current) {
       hasFetched.current = true;
       load();
+      loadEspnLeagues();
     }
-  }, [isLoaded, isSignedIn, load]);
+  }, [isLoaded, isSignedIn, load, loadEspnLeagues]);
 
   if (!isLoaded || loading) {
     return (
@@ -419,6 +469,82 @@ export default function GMPage() {
                 );
               })}
             </div>
+          )}
+        </section>
+
+        {/* ─── ESPN Leagues ─────────────────────────────── */}
+        <section className="mt-8 rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-[#0a0c14] p-5 shadow-sm dark:shadow-none">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">ESPN Leagues</h2>
+              <p className="text-[11px] text-zinc-500 mt-0.5">Connect your public ESPN fantasy leagues</p>
+            </div>
+            <span className="rounded-full border border-red-500/20 bg-red-500/5 px-2 py-0.5 text-[10px] font-semibold text-red-600 dark:text-red-400">
+              ESPN
+            </span>
+          </div>
+
+          {/* Add league form */}
+          <div className="mb-4 flex flex-col sm:flex-row gap-2">
+            <input
+              type="text"
+              value={espnLeagueId}
+              onChange={(e) => setEspnLeagueId(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addEspnLeague()}
+              placeholder="ESPN League ID (e.g. 336781)"
+              className="flex-1 rounded-xl border border-zinc-300 dark:border-zinc-700/60 bg-white dark:bg-zinc-900/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/20 transition"
+            />
+            <select
+              value={espnSeason}
+              onChange={(e) => setEspnSeason(e.target.value)}
+              className="rounded-xl border border-zinc-300 dark:border-zinc-700/60 bg-white dark:bg-zinc-900/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/20 transition"
+            >
+              {["2025", "2024", "2023", "2022", "2021"].map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+            <button
+              onClick={addEspnLeague}
+              disabled={espnAdding || !espnLeagueId.trim()}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-red-500/10 border border-red-500/30 px-4 py-2 text-sm font-semibold text-red-600 dark:text-red-400 hover:bg-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <FiPlus className="h-3.5 w-3.5" />
+              {espnAdding ? "Adding…" : "Add"}
+            </button>
+          </div>
+
+          {espnError && (
+            <p className="mb-3 text-xs text-red-500 dark:text-red-400">{espnError}</p>
+          )}
+
+          {espnLeagues.length === 0 ? (
+            <p className="text-xs text-zinc-500 italic">
+              No ESPN leagues added yet. Find your league ID in the ESPN app URL: fantasy.espn.com/football/league?leagueId=<span className="not-italic text-zinc-400">123456</span>
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {espnLeagues.map((l) => (
+                <li
+                  key={l.id}
+                  className="flex items-center gap-3 rounded-xl border border-zinc-200 dark:border-zinc-800/50 bg-zinc-50 dark:bg-zinc-900/40 px-3 py-2.5"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
+                      {l.name ?? `League ${l.leagueId}`}
+                    </p>
+                    <p className="text-[11px] text-zinc-500">
+                      ESPN · {l.season}{l.teamCount ? ` · ${l.teamCount} teams` : ""}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => removeEspnLeague(l.leagueId, l.season)}
+                    className="shrink-0 h-7 w-7 flex items-center justify-center rounded-lg text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                  >
+                    <FiTrash2 className="h-3.5 w-3.5" />
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
         </section>
 

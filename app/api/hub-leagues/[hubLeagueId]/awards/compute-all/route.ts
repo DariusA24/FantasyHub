@@ -21,6 +21,15 @@ async function fetchSleeperLeague(leagueId: string): Promise<any | null> {
   } catch { return null; }
 }
 
+async function fetchRosterOwners(leagueId: string): Promise<Set<string>> {
+  try {
+    const res = await fetch(`${SLEEPER_BASE}/league/${leagueId}/rosters`, { cache: "no-store" });
+    if (!res.ok) return new Set();
+    const rosters: { owner_id: string | null }[] = await res.json();
+    return new Set(rosters.map((r) => r.owner_id).filter(Boolean) as string[]);
+  } catch { return new Set(); }
+}
+
 /**
  * POST /api/hub-leagues/[hubLeagueId]/awards/compute-all
  *
@@ -59,15 +68,18 @@ export async function POST(_req: Request, ctx: RouteContext) {
       return NextResponse.json({ error: "No Sleeper seasons linked to this hub league" }, { status: 400 });
     }
 
-    // ── Traverse Sleeper history to discover all seasons ──────────────────
-
-    const knownIds = new Set(hubLeague.seasons.map((s) => s.sleeperLeagueId));
-    const allSeasons = new Map<string, string>( // sleeperLeagueId → season year
+    // Build the known season map and traverse the Sleeper previous_league_id chain
+    // to discover earlier seasons that belong to the same group of managers.
+    const allSeasons = new Map<string, string>(
       hubLeague.seasons.map((s) => [s.sleeperLeagueId, s.season])
     );
-    const visited = new Set<string>(knownIds);
+    const visited = new Set<string>(allSeasons.keys());
 
-    // Sort known seasons newest → oldest so we start traversal from the most recent
+    // Fetch the roster owners of the most recent season — used to detect when
+    // the traversal has gone back far enough to hit a different group's era.
+    const newestSeasonId = hubLeague.seasons[0].sleeperLeagueId;
+    const currentOwners = await fetchRosterOwners(newestSeasonId);
+
     const sortedKnown = [...hubLeague.seasons].sort(
       (a, b) => Number(b.season) - Number(a.season)
     );
@@ -84,24 +96,29 @@ export async function POST(_req: Request, ctx: RouteContext) {
         if (!league) break;
 
         const seasonYear = String(league.season ?? "");
-        if (seasonYear) {
-          allSeasons.set(prevId, seasonYear);
+        if (!seasonYear) break;
 
-          // Persist to DB so future computes and the franchise page can find it
-          const exists = await prisma.hubLeagueSeason.findFirst({
-            where: { hubLeagueId, sleeperLeagueId: prevId },
-            select: { id: true },
-          });
-          if (!exists) {
-            await prisma.hubLeagueSeason.create({
-              data: {
-                hubLeagueId,
-                sleeperLeagueId: prevId,
-                season: seasonYear,
-                sleeperName: league.name ?? null,
-              },
-            }).catch(() => null);
-          }
+        // Stop if none of the current group's owners played in this season —
+        // that means we've crossed into a previous group's era.
+        const prevOwners = await fetchRosterOwners(prevId);
+        const hasOverlap = [...currentOwners].some((id) => prevOwners.has(id));
+        if (!hasOverlap) break;
+
+        allSeasons.set(prevId, seasonYear);
+
+        const exists = await prisma.hubLeagueSeason.findFirst({
+          where: { hubLeagueId, sleeperLeagueId: prevId },
+          select: { id: true },
+        });
+        if (!exists) {
+          await prisma.hubLeagueSeason.create({
+            data: {
+              hubLeagueId,
+              sleeperLeagueId: prevId,
+              season: seasonYear,
+              sleeperName: league.name ?? null,
+            },
+          }).catch(() => null);
         }
 
         prevId = league.previous_league_id ?? null;

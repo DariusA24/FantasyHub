@@ -12,7 +12,9 @@ export type HubLeague = {
   name: string;
   description?: string | null;
   isMember?: boolean;
+  isOwner?: boolean;
   ownerUsername?: string | null;
+  createdAt?: string | null;
 };
 
 // internal: derive owner username from various possible shapes
@@ -84,7 +86,9 @@ export async function fetchHubLeaguesForSleeperLeague(
           name: hub.name,
           description: hub.description ?? null,
           isMember: hub.isMember ?? hub.is_member ?? false,
-          ownerUsername: getOwnerUsername(row, hub),
+          isOwner: hub.isOwner ?? hub.is_owner ?? false,
+          ownerUsername: hub?.owner?.username ?? getOwnerUsername(row, hub),
+          createdAt: hub.createdAt ?? null,
         } as HubLeague;
       })
       .filter((h: HubLeague | null): h is HubLeague => !!h);
@@ -98,7 +102,9 @@ export async function fetchHubLeaguesForSleeperLeague(
           name: obj.name,
           description: obj.description ?? null,
           isMember: obj.isMember ?? obj.is_member ?? false,
-          ownerUsername: getOwnerUsername(null, obj),
+          isOwner: obj.isOwner ?? obj.is_owner ?? false,
+          ownerUsername: obj?.owner?.username ?? getOwnerUsername(null, obj),
+          createdAt: obj.createdAt ?? null,
         } as HubLeague;
       })
       .filter((h: HubLeague | null): h is HubLeague => !!h);

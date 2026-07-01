@@ -13,7 +13,7 @@ model Profile {
   clerkId          String            @unique
   firstName        String
   lastName         String
-  username         String
+  username         String            @unique
   email            String
   profileImage     String
   bio              String?
@@ -30,6 +30,8 @@ model Profile {
   forumPostLikes       ForumPostLike[]           @relation("ForumPostLikes")
   forumPostComments    ForumPostComment[]        @relation("ForumPostComments")
   playerChatMessages   PlayerChat[]              @relation("PlayerChatMessages")
+  scoutingNotes        ProspectScoutingNote[]    @relation("ScoutingNotes")
+  feedback             Feedback[]                @relation("Feedback")
   awards               HubLeagueAward[]          @relation("AwardedProfiles")
   seasonStats          HubLeagueSeasonStat[]     @relation("SeasonStats")
   wallets              Wallet[]                  @relation("ProfileWallets")
@@ -37,6 +39,7 @@ model Profile {
   takenBets            Bet[]                     @relation("BetTaker")
   startSitVotes        StartSitVote[]            @relation("StartSitVotes")
   predictionStat       UserPredictionStat?       @relation("PredictionStat")
+  espnLeagues          EspnLeague[]              @relation("EspnLeagues")
 }
 
 model sleeperProfile {
@@ -442,6 +445,70 @@ model UserPredictionStat {
   profile Profile @relation("PredictionStat", fields: [profileId], references: [id])
 
   @@index([tier, correctPicks])
+}
+
+// ─── ESPN League Connections ──────────────────────────────────────────────────
+
+model EspnLeague {
+  id        String   @id @default(cuid())
+  profileId Int
+  leagueId  String   // ESPN numeric league ID
+  season    String   // e.g. "2025"
+  name      String?  // cached from ESPN response
+  teamCount Int?     // cached
+  createdAt DateTime @default(now())
+
+  profile Profile @relation("EspnLeagues", fields: [profileId], references: [id])
+
+  @@unique([profileId, leagueId, season])
+  @@index([profileId])
+}
+
+// ─── Feedback ─────────────────────────────────────────────────────────────────
+
+model Feedback {
+  id        String   @id @default(cuid())
+  profileId Int?
+  type      String   // "bug" | "suggestion"
+  title     String
+  body      String
+  status    String   @default("open") // "open" | "reviewed" | "resolved"
+  createdAt DateTime @default(now())
+
+  profile Profile? @relation("Feedback", fields: [profileId], references: [id])
+
+  @@index([profileId])
+  @@index([type, status])
+}
+
+// ─── College Prospect Scouting Notes ──────────────────────────────────────────
+
+model ProspectScoutingNote {
+  id        String   @id @default(cuid())
+  athleteId String   // CFBD athlete ID
+  authorId  Int
+  body      String
+  isPublic  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  author Profile @relation("ScoutingNotes", fields: [authorId], references: [id])
+
+  @@index([athleteId, isPublic])
+  @@index([authorId])
+  @@index([athleteId, authorId])
+}
+
+// ─── Player Season Stats Cache ────────────────────────────────────────────────
+
+model PlayerSeasonStatsCache {
+  playerId  String
+  season    Int
+  stats     Json
+  fetchedAt DateTime @default(now()) @updatedAt
+
+  @@id([playerId, season])
+  @@index([playerId])
 }
 
 // ─── Player Discussion Chat ────────────────────────────────────────────────────

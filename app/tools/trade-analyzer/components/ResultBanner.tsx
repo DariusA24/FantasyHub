@@ -10,7 +10,7 @@ export function ResultBanner({ myTotal, theirTotal, myBenchBonus, theirBenchBonu
 
   const adjustedMy    = myTotal + myBenchBonus;
   const adjustedTheir = theirTotal + theirBenchBonus;
-  const diff = adjustedMy - adjustedTheir;
+  const diff = adjustedTheir - adjustedMy;
   const base = Math.max(adjustedMy, adjustedTheir);
   const pct  = base > 0 ? Math.round(Math.abs(diff / base) * 100) : 0;
   const bonusSide = myBenchBonus > 0 ? "your side" : theirBenchBonus > 0 ? "their side" : null;

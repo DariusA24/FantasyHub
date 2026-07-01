@@ -84,7 +84,7 @@ function timeAgo(iso: string) {
 }
 
 function Avatar({ author, size = "sm" }: { author: Author; size?: "sm" | "md" }) {
-  const cls = size === "md" ? "h-8 w-8 text-[11px]" : "h-5 w-5 text-[9px]";
+  const cls = size === "md" ? "h-9 w-9 text-[11px]" : "h-5 w-5 text-[9px]";
   if (author.profileImage) {
     return <img src={author.profileImage} alt={author.username} className={`${cls} rounded-full object-cover shrink-0`} />;
   }
@@ -681,10 +681,10 @@ export default function ForumPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-[#05060a]">
-      <div className="mx-auto max-w-3xl px-4 pb-24 pt-10">
+      <div className="mx-auto max-w-3xl px-4 pb-24 pt-12">
 
         {/* Page header */}
-        <div className="mb-8">
+        <div className="mb-10">
           <div className="inline-flex items-center gap-2 rounded-full border border-zinc-200 dark:border-zinc-800/70 bg-zinc-100/80 dark:bg-black/40 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400 mb-4">
             <span className="h-1.5 w-1.5 rounded-full bg-amber-500 dark:bg-[#F4D06F] shadow-[0_0_8px_rgba(244,208,111,0.6)]" />
             Community
@@ -703,7 +703,7 @@ export default function ForumPage() {
         </div>
 
         {/* Tag filters */}
-        <div className="mb-4 flex flex-wrap gap-1.5">
+        <div className="mb-6 flex flex-wrap gap-2">
           {TAGS.map((t) => (
             <button key={t} onClick={() => handleTagClick(t)}
               className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
@@ -724,7 +724,7 @@ export default function ForumPage() {
         </div>
 
         {/* Sort tabs + My Posts */}
-        <div className="mb-6 flex items-center gap-2">
+        <div className="mb-8 flex items-center gap-2">
           <div className="flex items-center gap-1 rounded-xl border border-zinc-200 dark:border-zinc-800/60 bg-zinc-100 dark:bg-zinc-900/40 p-1">
             <button onClick={() => handleSortChange("new")}
               className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
@@ -783,21 +783,21 @@ export default function ForumPage() {
           </div>
         ) : (
           <>
-            <ul className="space-y-2">
+            <ul className="space-y-4">
               {posts.map((post) => (
                 <li key={post.id} onClick={() => setViewId(post.id)}
-                  className="group rounded-2xl border border-zinc-200 dark:border-zinc-800/50 bg-white dark:bg-zinc-900/30 px-5 py-4 hover:border-zinc-300 dark:hover:border-zinc-700/70 hover:bg-zinc-50 dark:hover:bg-zinc-900/60 transition cursor-pointer shadow-sm dark:shadow-none">
-                  <div className="flex items-start gap-3">
+                  className="group rounded-2xl border border-zinc-200 dark:border-zinc-800/50 bg-white dark:bg-zinc-900/30 px-6 py-6 hover:border-zinc-300 dark:hover:border-zinc-700/70 hover:bg-zinc-50 dark:hover:bg-zinc-900/60 transition cursor-pointer shadow-sm dark:shadow-none">
+                  <div className="flex items-start gap-4">
                     <Avatar author={post.author} size="md" />
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-2">
                         <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${TAG_STYLE[post.tag]}`}>
                           {post.tag}
                         </span>
                         <span className="text-[10px] text-zinc-500">{timeAgo(post.publishedAt)}</span>
                       </div>
                       <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-zinc-950 dark:group-hover:text-white truncate">{post.title}</p>
-                      <p className="mt-0.5 text-xs text-zinc-500 line-clamp-2">{post.excerpt}</p>
+                      <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed line-clamp-2">{post.excerpt}</p>
                       {post.mediaUrls?.length > 0 && (
                         <div className="mt-2 flex gap-1.5">
                           {post.mediaUrls.slice(0, 3).map((url, i) => (
@@ -812,7 +812,7 @@ export default function ForumPage() {
                           )}
                         </div>
                       )}
-                      <div className="mt-2 flex items-center gap-1 text-[10px] text-zinc-500">
+                      <div className="mt-4 flex items-center gap-1 text-[10px] text-zinc-500 dark:text-zinc-500">
                         <span className="font-medium">{post.author.firstName} {post.author.lastName}</span>
                         <span className="text-zinc-300 dark:text-zinc-700">·</span>
                         <span>{post.readTime}</span>
@@ -830,7 +830,7 @@ export default function ForumPage() {
 
             {hasMore && (
               <button onClick={loadMore} disabled={loadingMore}
-                className="mt-4 w-full rounded-2xl border border-dashed border-zinc-300 dark:border-zinc-800/60 py-3 text-xs text-zinc-500 dark:text-zinc-600 hover:text-zinc-700 dark:hover:text-zinc-400 hover:border-zinc-400 dark:hover:border-zinc-700/60 transition disabled:opacity-50">
+                className="mt-6 w-full rounded-2xl border border-dashed border-zinc-300 dark:border-zinc-800/60 py-3 text-xs text-zinc-500 dark:text-zinc-600 hover:text-zinc-700 dark:hover:text-zinc-400 hover:border-zinc-400 dark:hover:border-zinc-700/60 transition disabled:opacity-50">
                 {loadingMore ? "Loading…" : "Load more"}
               </button>
             )}

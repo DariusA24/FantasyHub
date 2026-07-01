@@ -55,9 +55,7 @@ function HomePage() {
     Record<string, { wins: number; losses: number; ties: number }>
   >({});
   const [selectedSeason, setSelectedSeason] = useState<string>("2026");
-  const [selectedLeague, setSelectedLeague] = useState<SleeperLeagues | null>(
-    null
-  );
+  const [selectedLeague, setSelectedLeague] = useState<SleeperLeagues | null>(null);
   const [isLeagueModalOpen, setIsLeagueModalOpen] = useState(false);
   const [isLeaguesLoading, setIsLeaguesLoading] = useState(false);
   const [recentHubLeague, setRecentHubLeague] = useState<{ id: string; name: string } | null>(null);
@@ -322,12 +320,6 @@ function HomePage() {
   const totalGames = totalWins + totalLosses;
   const winRate = totalGames > 0 ? (totalWins / totalGames) * 100 : 0;
 
-  const handleLeagueClick = (league: SleeperLeagues) => {
-    if (!league) return;
-    setSelectedLeague(league);
-    setIsLeagueModalOpen(true);
-  };
-
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-[#05060a]">
       <div className="mx-auto flex max-w-6xl flex-col gap-10 px-4 pb-24 pt-10">
@@ -462,7 +454,10 @@ function HomePage() {
             <LeagueGrid
               leagues={leaguesJoined}
               leagueRecords={leagueRecords}
-              onLeagueClick={handleLeagueClick}
+              onLeagueClick={(league) => {
+                setSelectedLeague(league);
+                setIsLeagueModalOpen(true);
+              }}
             />
           ) : (
             <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-zinc-300 dark:border-zinc-700/70 bg-zinc-50 dark:bg-zinc-950/60 px-4 py-8 text-center">
@@ -494,7 +489,13 @@ function HomePage() {
           )}
         </div>
 
-        {/* Sleeper modal & League modal */}
+        <LeagueHubModal
+          league={selectedLeague}
+          isOpen={isLeagueModalOpen && !!selectedLeague}
+          onClose={() => { setIsLeagueModalOpen(false); setSelectedLeague(null); }}
+        />
+
+        {/* Sleeper modal */}
         {!hasSleeperLinked && (
           <SleeperSearchModal
             isOpen={showModal}
@@ -508,14 +509,6 @@ function HomePage() {
           />
         )}
 
-        <LeagueHubModal
-          league={selectedLeague ?? null}
-          isOpen={isLeagueModalOpen && !!selectedLeague}
-          onClose={() => {
-            setIsLeagueModalOpen(false);
-            setSelectedLeague(null);
-          }}
-        />
       </div>
     </div>
   );

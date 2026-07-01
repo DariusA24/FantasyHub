@@ -18,7 +18,9 @@ import {
   FiCalendar,
   FiChevronRight,
   FiRefreshCw,
+  FiTrash2,
 } from "react-icons/fi";
+
 
 type MemberProfile = {
   id: number;
@@ -255,6 +257,16 @@ export default function HubLeaguePage() {
       const res = await fetch(`/api/hub-leagues/${hubLeagueId}/awards/compute-all`, { method: "POST" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Sync failed");
+
+      const results: { season: string; count: number; error?: string }[] = data.results ?? [];
+      const failed = results.filter((r) => r.error);
+      if (failed.length > 0 && data.totalCount === 0) {
+        throw new Error(`All seasons failed. First error: ${failed[0].error}`);
+      }
+      if (failed.length > 0) {
+        setSyncError(`${failed.length} season(s) had errors (${failed.map((r) => r.season).join(", ")})`);
+      }
+
       setLastSyncedAt(new Date());
       setSyncSuccess(true);
       setTimeout(() => setSyncSuccess(false), 4000);
@@ -661,6 +673,41 @@ export default function HubLeaguePage() {
           </section>
 
         </div>
+
+        {/* ─── Danger Zone (owner only) ─────────────────────── */}
+        {isOwner && (
+          <section className="mb-8 hub-card p-5 border-red-900/30">
+            <h2 className="text-sm font-semibold text-zinc-100 mb-1">Danger Zone</h2>
+            <p className="text-[11px] text-zinc-500 mb-4">Permanently delete this hub league and all its data.</p>
+            {showDeleteConfirm ? (
+              <div className="flex items-center gap-3">
+                <p className="text-xs text-red-400 flex-1">This cannot be undone. Are you sure?</p>
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="text-[11px] px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="text-[11px] px-3 py-1.5 rounded-lg border border-red-500/50 bg-red-500/10 text-red-400 hover:bg-red-500/20 disabled:opacity-50 transition-colors"
+                >
+                  {deleting ? "Deleting…" : "Delete forever"}
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="inline-flex items-center gap-2 text-[11px] px-3 py-1.5 rounded-lg border border-red-900/50 bg-red-950/30 text-red-400 hover:bg-red-900/40 hover:border-red-700/60 transition-colors"
+              >
+                <FiTrash2 className="h-3.5 w-3.5" />
+                Delete Hub League
+              </button>
+            )}
+          </section>
+        )}
+
     </>
   );
 }

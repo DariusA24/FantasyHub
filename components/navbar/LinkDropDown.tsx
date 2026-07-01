@@ -3,7 +3,7 @@ import { LuAlignLeft } from 'react-icons/lu';
 import Link from 'next/link';
 import { Button } from '../ui/button';
 import UserIcon from './UserIcon';
-import { SignedIn, SignedOut, SignIn, SignInButton, SignOutButton, SignUpButton } from '@clerk/nextjs';
+import { SignedIn, SignedOut, SignInButton, SignOutButton, SignUpButton } from '@clerk/nextjs';
 
 function LinkDropDown() {
     return (
@@ -34,6 +34,13 @@ function LinkDropDown() {
                             Profile
                         </DropdownMenuItem>
                     </Link>
+                    <DropdownMenuSeparator />
+                    <Link href="/feedback" className="no-underline">
+                        <DropdownMenuItem className="cursor-pointer hover:bg-gray-100">
+                            Feedback
+                        </DropdownMenuItem>
+                    </Link>
+                    <DropdownMenuSeparator />
                     <SignOutButton>
                         <DropdownMenuItem className="cursor-pointer hover:bg-gray-100">
                             Sign Out

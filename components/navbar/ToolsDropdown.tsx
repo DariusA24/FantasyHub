@@ -56,13 +56,12 @@ const TOOLS = [
     soon: true,
   },
   {
-    href: null,
+    href: '/tools/scouting',
     label: 'Scouting',
-    description: 'Prep your rankings before draft day',
+    description: 'Rank dynasty prospects by draft class',
     icon: FiCalendar,
     color: 'text-orange-400',
     bg: 'bg-orange-500/10',
-    soon: true,
   },
 ];
 

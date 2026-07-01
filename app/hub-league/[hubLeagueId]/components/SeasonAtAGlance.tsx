@@ -7,7 +7,7 @@ import type { SeasonGlance } from "./types";
 type Props = {
   loaded: boolean;
   seasonGlance?: SeasonGlance;
-  hubLeagueId: string;
+  hubLeagueId?: string | null;
 };
 
 function ordinalSuffix(n: number): string {
@@ -71,12 +71,14 @@ export function SeasonAtAGlance({ loaded, seasonGlance, hubLeagueId }: Props) {
         </>
       )}
 
-      <Link
-        href={`/hub-league/${hubLeagueId}/standings`}
-        className="mt-3 flex w-full items-center justify-center gap-1 rounded-xl border border-dashed border-zinc-800/60 py-2 text-[11px] text-gray-300 dark:text-zinc-600 hover:border-zinc-700/60 hover:text-gray-500 dark:hover:text-zinc-400 transition"
-      >
-        Full Standings <FiChevronRight className="h-3 w-3" />
-      </Link>
+      {hubLeagueId && (
+        <Link
+          href={`/hub-league/${hubLeagueId}/standings`}
+          className="mt-3 flex w-full items-center justify-center gap-1 rounded-xl border border-dashed border-zinc-800/60 py-2 text-[11px] text-gray-300 dark:text-zinc-600 hover:border-zinc-700/60 hover:text-gray-500 dark:hover:text-zinc-400 transition"
+        >
+          Full Standings <FiChevronRight className="h-3 w-3" />
+        </Link>
+      )}
     </section>
   );
 }
