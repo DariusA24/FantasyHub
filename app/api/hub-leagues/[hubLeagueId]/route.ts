@@ -34,7 +34,7 @@ export async function GET(
     // Get profile for current user
     const profile = await prisma.profile.findUnique({
       where: { clerkId: user.id },
-      select: { id: true },
+      select: { id: true, sleeperProfileId: true },
     });
 
     if (!profile) {
@@ -98,7 +98,19 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ hubLeague }, { status: 200 });
+    // Last sync time: most recent award updatedAt for this hub league
+    const lastAward = await prisma.hubLeagueAward.findFirst({
+      where: { hubLeagueId },
+      orderBy: { updatedAt: "desc" },
+      select: { updatedAt: true },
+    });
+
+    return NextResponse.json({
+      hubLeague,
+      isOwner,
+      sleeperProfileId: profile.sleeperProfileId ?? null,
+      lastSyncedAt: lastAward?.updatedAt ?? null,
+    }, { status: 200 });
   } catch (err) {
     console.error("Error fetching hub league:", err);
     return NextResponse.json(
@@ -109,14 +121,21 @@ export async function GET(
 }
 
 // NEW: DELETE /api/hub-leagues/[hubLeagueId] — only owner can delete
-export async function DELETE(_req: Request, { params }: RouteParams) {
+export async function DELETE(
+  _req: Request,
+  context: { params: Promise<{ hubLeagueId: string }> } | { params: { hubLeagueId: string } }
+) {
   try {
     const user = await getAuthUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const hubLeagueId = params.hubLeagueId;
+    const resolvedParams =
+      "then" in (context.params as any)
+        ? await (context.params as Promise<{ hubLeagueId: string }>)
+        : (context.params as { hubLeagueId: string });
+    const hubLeagueId = resolvedParams.hubLeagueId;
 
     // Get profile for current user
     const profile = await prisma.profile.findUnique({
@@ -151,12 +170,12 @@ export async function DELETE(_req: Request, { params }: RouteParams) {
       );
     }
 
-    // Delete hub league; related records will be deleted according to your
-    // Prisma referential actions (onDelete). If needed, you can manually
-    // delete seasons/members first.
-    await prisma.hubLeague.delete({
-      where: { id: hubLeagueId },
-    });
+    // Delete child records that don't have onDelete: Cascade in the schema
+    await prisma.hubLeagueSeason.deleteMany({ where: { hubLeagueId } });
+    await prisma.hubLeagueManagerProfile.deleteMany({ where: { hubLeagueId } });
+    await prisma.hubLeagueMember.deleteMany({ where: { hubLeagueId } });
+
+    await prisma.hubLeague.delete({ where: { id: hubLeagueId } });
 
     return NextResponse.json(
       { success: true, message: "Hub league deleted" },

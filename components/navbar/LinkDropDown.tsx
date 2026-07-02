@@ -1,41 +1,55 @@
+'use client';
+
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../ui/dropdown-menu';
 import { LuAlignLeft } from 'react-icons/lu';
 import Link from 'next/link';
-import { Button } from '../ui/button';
 import UserIcon from './UserIcon';
-import { SignedIn, SignedOut, SignIn, SignInButton, SignOutButton, SignUpButton } from '@clerk/nextjs';
+import { SignedIn, SignedOut, SignInButton, SignOutButton, SignUpButton } from '@clerk/nextjs';
 
 function LinkDropDown() {
     return (
         <DropdownMenu>
-            <DropdownMenuTrigger>
-                <Button variant="outline" className="flex gap-2 items-center max-w-[50px]">
-                    <LuAlignLeft className="w-6 h-6" />
+            <DropdownMenuTrigger asChild>
+                <button className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 border border-zinc-200 dark:border-amber-100/10 bg-white/80 dark:bg-neutral-800/60 hover:bg-amber-500/10 hover:border-amber-500/30 dark:hover:border-amber-500/40 transition-all duration-150 outline-none">
+                    <LuAlignLeft className="w-4 h-4 text-zinc-600 dark:text-amber-50/80" />
                     <UserIcon />
-                </Button>
+                </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-52" align="start" sideOffset={10}>
+            <DropdownMenuContent className="w-52" align="end" sideOffset={10}>
                 <SignedOut>
                     <SignInButton mode="modal">
-                        <DropdownMenuItem className="cursor-pointer hover:bg-gray-100">
+                        <DropdownMenuItem className="cursor-pointer">
                             Login
                         </DropdownMenuItem>
                     </SignInButton>
                     <DropdownMenuSeparator />
                     <SignUpButton mode="modal">
-                        <DropdownMenuItem className="cursor-pointer hover:bg-gray-100">
+                        <DropdownMenuItem className="cursor-pointer">
                             Register
                         </DropdownMenuItem>
                     </SignUpButton>
                 </SignedOut>
                 <SignedIn>
                     <Link href="/profile" className="no-underline">
-                        <DropdownMenuItem className="cursor-pointer hover:bg-gray-100">
+                        <DropdownMenuItem className="cursor-pointer">
                             Profile
                         </DropdownMenuItem>
                     </Link>
+                    <DropdownMenuSeparator />
+                    <Link href="/manager" className="no-underline">
+                        <DropdownMenuItem className="cursor-pointer">
+                            My Manager Page
+                        </DropdownMenuItem>
+                    </Link>
+                    <DropdownMenuSeparator />
+                    <Link href="/feedback" className="no-underline">
+                        <DropdownMenuItem className="cursor-pointer">
+                            Feedback
+                        </DropdownMenuItem>
+                    </Link>
+                    <DropdownMenuSeparator />
                     <SignOutButton>
-                        <DropdownMenuItem className="cursor-pointer hover:bg-gray-100">
+                        <DropdownMenuItem className="cursor-pointer">
                             Sign Out
                         </DropdownMenuItem>
                     </SignOutButton>
@@ -46,4 +60,3 @@ function LinkDropDown() {
 }
 
 export default LinkDropDown;
-

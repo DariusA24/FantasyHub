@@ -6,11 +6,10 @@ function Providers({children}:{children:React.ReactNode}) {
   return (
     <>
     <Toaster />
-    <ThemeProvider 
-        attribute="class" 
-        defaultTheme="dark" 
-        forcedTheme="dark"    // Add forced theme
-        enableSystem={false} 
+    <ThemeProvider
+        attribute="class"
+        defaultTheme="dark"
+        enableSystem={false}
         disableTransitionOnChange>
       {children}
       </ThemeProvider>

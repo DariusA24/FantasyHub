@@ -2,7 +2,7 @@
 
 import { getAuthUser } from './actions';
 import { prisma } from './db';
-import { getSleeperUserByUsername, getSleeperUserById, getUserLeagues, getLeagueRosters, getAllNflPlayers } from './sleeperService';
+import { getSleeperUserByUsername, getSleeperUserById, getUserLeagues, getLeague, getLeagueRosters, getLeagueMatchups, getAllNflPlayers } from './sleeperService';
 
 export async function searchSleeperProfile(identifier: string) {
   const trimmed = identifier.trim();
@@ -156,6 +156,16 @@ export async function getSleeperLeagueAvatarThumbnail(photo: string): Promise<st
   }
 }
 
+export async function getSleeperLeagueSettings(leagueId: string) {
+  try {
+    return await getLeague(leagueId);
+  } catch (error) {
+    throw new Error(
+      error instanceof Error ? error.message : 'Failed to fetch Sleeper league settings.'
+    );
+  }
+}
+
 export async function getSleeperLeagueRosters(leagueId: string) {
   try {
     const rosters = await getLeagueRosters(leagueId);
@@ -229,6 +239,21 @@ export async function getSleeperPlayersByIds(
       map[p.id] = p;
     }
     return map;
+  }
+}
+
+// Get matchups for a given league and week.
+// During the offseason, pass week = 1 as a default.
+export async function getSleeperMatchups(leagueId: string, week: number = 1) {
+  try {
+    const matchups = await getLeagueMatchups(leagueId, week);
+    console.log(`Fetched ${matchups.length} matchups for league ${leagueId}, week ${week}`);
+    return matchups;
+  } catch (error) {
+    console.error('Error fetching Sleeper matchups:', error);
+    throw new Error(
+      error instanceof Error ? error.message : 'Failed to fetch Sleeper matchups.'
+    );
   }
 }
 

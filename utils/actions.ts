@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from 'next/cache';
 import { imageSchema, profileSchema, propertySchema, validateWithZodSchema } from "./schemas";
 import { uploadImage } from "./supabase";
+import { getSleeperUserByUsername } from "./sleeperService";
 
 export const getAuthUser = async()=> {
     const user = await currentUser();
@@ -52,6 +53,8 @@ export const fetchProfileImage = async () => {
      console.log(user);   
      const rawData = Object.fromEntries(formData);
      const validatedFields = validateWithZodSchema(profileSchema, rawData);
+     const existingUsername = await prisma.profile.findFirst({ where: { username: validatedFields.username } });
+     if (existingUsername) throw new Error('That username is already taken. Please choose a different one.');
      await prisma.profile.create({
        data:{
           clerkId: user.id,
@@ -65,19 +68,16 @@ export const fetchProfileImage = async () => {
        privateMetadata: {
           hasProfile: true,
        }
-    
      });
-     console.log('Updated Clerk metadata'); // Debug log
-      return { message: 'Profile created successfully!' };
-    } catch (error) {
-   
-       return renderError(error); 
+     return { message: 'Profile created successfully!' };
+    } catch (error: any) {
+       if (error?.code === 'P2002') return { message: 'That username is already taken. Please choose a different one.' };
+       return renderError(error);
     }
-    redirect('/'); 
    };
 
   export const updateProfileAction = async (
-    prevState: any, 
+    prevState: any,
     formData:FormData
   ): Promise<{message:string}> => {
     const user = await getAuthUser();
@@ -85,20 +85,34 @@ export const fetchProfileImage = async () => {
     try {
       const rawData = Object.fromEntries(formData);
 
-      const validatedFields = validateWithZodSchema(profileSchema, rawData); 
+      const validatedFields = validateWithZodSchema(profileSchema, rawData);
+
+      const sleeperUsername = (rawData.sleeperId as string | undefined)?.trim() ?? '';
+
+      let sleeperUpdate: { sleeperProfileId: string | null } | undefined;
+      if ('sleeperId' in rawData) {
+        if (sleeperUsername) {
+          const sleeperUser = await getSleeperUserByUsername(sleeperUsername);
+          if (!sleeperUser?.user_id) throw new Error('Sleeper username not found');
+          sleeperUpdate = { sleeperProfileId: sleeperUser.user_id as string };
+        } else {
+          sleeperUpdate = { sleeperProfileId: null };
+        }
+      }
 
       await prisma.profile.update({
-        where: {
-          clerkId:user.id
+        where: { clerkId: user.id },
+        data: {
+          ...validatedFields,
+          ...sleeperUpdate,
         },
-        data:validatedFields,
-      })
+      });
 
-      revalidatePath('/profile'); 
-      return {message: 'Profile updated sucessfully'}; 
+      revalidatePath('/profile');
+      return {message: 'Profile updated sucessfully'};
     } catch (error) {
-      return renderError(error); 
-    } 
+      return renderError(error);
+    }
   };
 
 

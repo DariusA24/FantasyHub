@@ -1,6 +1,7 @@
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 generator client {
@@ -12,15 +13,37 @@ model Profile {
   clerkId          String            @unique
   firstName        String
   lastName         String
-  username         String
+  username         String            @unique
   email            String
   profileImage     String
+  bio              String?
   updatedAt        DateTime          @updatedAt
   sleeperProfileId String?
   sleeperProfile   sleeperProfile?
-  hubLeagues       HubLeague[]
-  // NEW: hub league memberships (invited/allowed leagues)
-  hubLeagueMemberships HubLeagueMember[] @relation("ProfileMemberships")
+  hubLeagues           HubLeague[]
+  hubLeagueMemberships HubLeagueMember[]        @relation("ProfileMemberships")
+  managerProfiles      HubLeagueManagerProfile[] @relation("ManagerProfiles")
+  authoredPosts        HubLeaguePost[]           @relation("AuthoredPosts")
+  postLikes            HubLeaguePostLike[]       @relation("PostLikes")
+  postComments         HubLeaguePostComment[]    @relation("PostComments")
+  forumPosts           ForumPost[]               @relation("AuthoredForumPosts")
+  forumPostLikes       ForumPostLike[]           @relation("ForumPostLikes")
+  forumPostComments    ForumPostComment[]        @relation("ForumPostComments")
+  playerChatMessages   PlayerChat[]              @relation("PlayerChatMessages")
+  scoutingNotes        ProspectScoutingNote[]    @relation("ScoutingNotes")
+  feedback             Feedback[]                @relation("Feedback")
+  awards               HubLeagueAward[]          @relation("AwardedProfiles")
+  seasonStats          HubLeagueSeasonStat[]     @relation("SeasonStats")
+  wallets              Wallet[]                  @relation("ProfileWallets")
+  createdBets          Bet[]                     @relation("BetCreator")
+  takenBets            Bet[]                     @relation("BetTaker")
+  startSitVotes        StartSitVote[]            @relation("StartSitVotes")
+  predictionStat       UserPredictionStat?       @relation("PredictionStat")
+  espnSwid             String?
+  espnS2               String?
+  espnLeagues          EspnLeague[]              @relation("EspnLeagues")
+  queuePostsCreated    LeagueQueuePost[]         @relation("QueuePostCreator")
+  queueMemberships     LeagueQueueMember[]       @relation("QueuePostMembers")
 }
 
 model sleeperProfile {
@@ -42,6 +65,7 @@ model SleeperPlayer {
   rawJson   Json     // store entire Sleeper payload if you want
   updatedAt DateTime @updatedAt
   maddenStats  maddenPlayer[]
+  chatMessages PlayerChat[]
 }
 
 model HubLeague {
@@ -50,11 +74,94 @@ model HubLeague {
   description String?
   ownerId     Int
   owner       Profile           @relation(fields: [ownerId], references: [id])
-  seasons     HubLeagueSeason[]
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-  // NEW: members invited/allowed to this hub league
-  members     HubLeagueMember[] @relation("LeagueMembers")
+  seasons         HubLeagueSeason[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  members         HubLeagueMember[]        @relation("LeagueMembers")
+  managerProfiles HubLeagueManagerProfile[]
+  posts           HubLeaguePost[]
+  champions       HubLeagueChampion[]
+  awards          HubLeagueAward[]
+  seasonStats     HubLeagueSeasonStat[]
+  h2hRecords      HubLeagueH2H[]
+  wallets         Wallet[]
+  bets            Bet[]
+}
+
+model HubLeagueChampion {
+  id          String   @id @default(cuid())
+  hubLeagueId String
+  season      String   // e.g. "2024"
+  winnerName  String
+  teamName    String?
+  wins        Int
+  losses      Int
+  ties        Int      @default(0)
+  notes       String?
+  variant     String   @default("classic") // "classic" | "diamond" | "obsidian" | "ruby" | "emerald"
+  photoUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  hubLeague HubLeague @relation(fields: [hubLeagueId], references: [id], onDelete: Cascade)
+
+  @@unique([hubLeagueId, season])
+  @@index([hubLeagueId])
+}
+
+model HubLeaguePost {
+  id           String  @id @default(cuid())
+  hubLeagueId  String?
+  espnLeagueId String? // ESPN numeric league ID — set instead of hubLeagueId for ESPN league blogs
+  authorId     Int
+  tag         String   // "Recap" | "Trade" | "Power Rankings" | "Trash Talk" | "Injury" | "News"
+  weekLabel   String
+  title       String
+  body        String
+  excerpt     String
+  readTime    String
+  publishedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  hubLeague HubLeague?           @relation(fields: [hubLeagueId], references: [id], onDelete: Cascade)
+  author    Profile              @relation("AuthoredPosts", fields: [authorId], references: [id])
+  likes     HubLeaguePostLike[]
+  comments  HubLeaguePostComment[]
+
+  @@index([hubLeagueId])
+  @@index([espnLeagueId])
+  @@index([authorId])
+}
+
+model HubLeaguePostLike {
+  id        Int      @id @default(autoincrement())
+  postId    String
+  profileId Int
+  value     Int      // 1 = like, -1 = dislike
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  post    HubLeaguePost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  profile Profile       @relation("PostLikes", fields: [profileId], references: [id])
+
+  @@unique([postId, profileId])
+  @@index([postId])
+}
+
+model HubLeaguePostComment {
+  id        String   @id @default(cuid())
+  postId    String
+  authorId  Int
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  post   HubLeaguePost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author Profile       @relation("PostComments", fields: [authorId], references: [id])
+
+  @@index([postId])
+  @@index([authorId])
 }
 
 model HubLeagueSeason {
@@ -70,6 +177,33 @@ model HubLeagueSeason {
 
   @@index([sleeperLeagueId])
   @@index([hubLeagueId, season])
+}
+
+model HubLeagueManagerProfile {
+  id                Int      @id @default(autoincrement())
+  hubLeagueId       String
+  profileId         Int
+  bio               String?
+  playerStyle       String?
+  playerStyleSub    String?
+  favoriteAsset     String?
+  favoriteAssetSub  String?
+  tradeActivity     String?
+  tradeActivitySub  String?
+  favoritePlayerId  String?
+  favoritePlayerSub String?
+  mode              String?
+  modeSub           String?
+  rival             String?
+  rivalSub          String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  hubLeague HubLeague @relation(fields: [hubLeagueId], references: [id])
+  profile   Profile   @relation("ManagerProfiles", fields: [profileId], references: [id])
+
+  @@unique([hubLeagueId, profileId])
+  @@index([profileId])
 }
 
 // NEW: join table between HubLeague and Profile to represent membership
@@ -111,4 +245,330 @@ model maddenPlayer {
   @@map("maddenPlayer")
 }
 
+model HubLeagueH2H {
+  id                  String   @id @default(cuid())
+  hubLeagueId         String
+  season              String
+  sleeperUserId       String
+  opponentUserId      String
+  opponentDisplayName String
+  opponentAvatar      String?
+  wins                Int      @default(0)
+  losses              Int      @default(0)
+  ties                Int      @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
+  hubLeague HubLeague @relation(fields: [hubLeagueId], references: [id], onDelete: Cascade)
+
+  @@unique([hubLeagueId, season, sleeperUserId, opponentUserId])
+  @@index([hubLeagueId, sleeperUserId])
+}
+
+model HubLeagueSeasonStat {
+  id            String   @id @default(cuid())
+  hubLeagueId   String
+  season        String
+  sleeperUserId String
+  profileId     Int?
+  wins          Int
+  losses        Int
+  ties          Int      @default(0)
+  pointsFor     Float
+  pointsAgainst Float
+  highWeek      Float
+  lowWeek       Float
+  rank          Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  hubLeague HubLeague @relation(fields: [hubLeagueId], references: [id], onDelete: Cascade)
+  profile   Profile?  @relation("SeasonStats", fields: [profileId], references: [id])
+
+  @@unique([hubLeagueId, season, sleeperUserId])
+  @@index([hubLeagueId, season])
+  @@index([profileId])
+}
+
+model HubLeagueAward {
+  id            String   @id @default(cuid())
+  hubLeagueId   String
+  season        String
+  sleeperUserId String
+  profileId     Int?
+  type          String
+  label         String
+  description   String
+  value         String?
+  week          Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  hubLeague HubLeague @relation(fields: [hubLeagueId], references: [id], onDelete: Cascade)
+  profile   Profile?  @relation("AwardedProfiles", fields: [profileId], references: [id])
+
+  @@unique([hubLeagueId, season, type, sleeperUserId])
+  @@index([hubLeagueId, season])
+  @@index([profileId])
+}
+
+model Wallet {
+  id          String   @id @default(cuid())
+  hubLeagueId String
+  profileId   Int
+  balance     Int      @default(10000)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  hubLeague HubLeague @relation(fields: [hubLeagueId], references: [id], onDelete: Cascade)
+  profile   Profile   @relation("ProfileWallets", fields: [profileId], references: [id])
+
+  @@unique([hubLeagueId, profileId])
+  @@index([profileId])
+}
+
+// ─── Global Forum ─────────────────────────────────────────────────────────────
+
+model ForumPost {
+  id          String   @id @default(cuid())
+  authorId    Int
+  tag         String   // "Trade Advice" | "Waiver Wire" | "Start/Sit" | "Draft" | "Trash Talk" | "Playoffs" | "News" | "General"
+  title       String
+  body        String
+  excerpt     String
+  readTime    String
+  mediaUrls   String[] @default([])
+  publishedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  author   Profile            @relation("AuthoredForumPosts", fields: [authorId], references: [id])
+  likes    ForumPostLike[]
+  comments ForumPostComment[]
+
+  @@index([authorId])
+  @@index([publishedAt])
+  @@index([tag])
+}
+
+model ForumPostLike {
+  id        Int      @id @default(autoincrement())
+  postId    String
+  profileId Int
+  value     Int      // 1 = upvote, -1 = downvote
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  post    ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  profile Profile   @relation("ForumPostLikes", fields: [profileId], references: [id])
+
+  @@unique([postId, profileId])
+  @@index([postId])
+}
+
+model ForumPostComment {
+  id        String   @id @default(cuid())
+  postId    String
+  authorId  Int
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  post   ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author Profile   @relation("ForumPostComments", fields: [authorId], references: [id])
+
+  @@index([postId])
+  @@index([authorId])
+}
+
+model Bet {
+  id          String    @id @default(cuid())
+  hubLeagueId String
+  creatorId   Int
+  takerId     Int?
+  type        String    // "season" | "h2h"
+  title       String
+  description String?
+  amount      Int
+  status      String    @default("open") // "open" | "accepted" | "settled" | "cancelled"
+  result      String?   // "creator" | "taker" | "push"
+  season      String?
+  week        Int?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  settledAt   DateTime?
+
+  hubLeague HubLeague @relation(fields: [hubLeagueId], references: [id], onDelete: Cascade)
+  creator   Profile   @relation("BetCreator", fields: [creatorId], references: [id])
+  taker     Profile?  @relation("BetTaker", fields: [takerId], references: [id])
+
+  @@index([hubLeagueId])
+  @@index([creatorId])
+  @@index([takerId])
+}
+
+// ─── Start / Sit Community Voting ────────────────────────────────────────────
+
+model StartSitMatchup {
+  id        String         @id @default(cuid())
+  playerKey String         // sorted sleeper IDs joined: "id1_id2_id3"
+  week      Int
+  season    String
+  createdAt DateTime       @default(now())
+  votes     StartSitVote[]
+
+  @@unique([playerKey, week, season])
+  @@index([week, season])
+}
+
+model StartSitVote {
+  id             String          @id @default(cuid())
+  matchupId      String
+  matchup        StartSitMatchup @relation(fields: [matchupId], references: [id], onDelete: Cascade)
+  profileId      Int?
+  profile        Profile?        @relation("StartSitVotes", fields: [profileId], references: [id])
+  guestToken     String?         // UUID stored in localStorage for unauthenticated voters
+  chosenPlayerId String
+  createdAt      DateTime        @default(now())
+
+  correct        Boolean?        // null = ungraded, true/false = resolved after week ends
+
+  @@unique([matchupId, profileId])
+  @@unique([matchupId, guestToken])
+  @@index([matchupId])
+  @@index([profileId])
+  @@index([profileId, correct])
+}
+
+model UserPredictionStat {
+  id           String   @id @default(cuid())
+  profileId    Int      @unique
+  totalVotes   Int      @default(0)
+  correctPicks Int      @default(0)
+  streak       Int      @default(0)
+  bestStreak   Int      @default(0)
+  tier         String   @default("rookie") // "rookie" | "analyst" | "expert" | "legend"
+  updatedAt    DateTime @updatedAt
+
+  profile Profile @relation("PredictionStat", fields: [profileId], references: [id])
+
+  @@index([tier, correctPicks])
+}
+
+// ─── ESPN League Connections ──────────────────────────────────────────────────
+
+model EspnLeague {
+  id        String   @id @default(cuid())
+  profileId Int
+  leagueId  String   // ESPN numeric league ID
+  season    String   // e.g. "2025"
+  name      String?  // cached from ESPN response
+  teamCount Int?     // cached
+  createdAt DateTime @default(now())
+
+  profile Profile @relation("EspnLeagues", fields: [profileId], references: [id])
+
+  @@unique([profileId, leagueId, season])
+  @@index([profileId])
+}
+
+// ─── League Market Queue ──────────────────────────────────────────────────────
+
+model LeagueQueuePost {
+  id          String   @id @default(cuid())
+  creatorId   Int
+  leagueName  String
+  platform    String
+  format      String
+  scoring     String
+  teamCount   Int
+  entryFee    Int?
+  description String
+  draftDate   String?
+  status      String   @default("open") // "open" | "full" | "cancelled"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  creator Profile             @relation("QueuePostCreator", fields: [creatorId], references: [id])
+  members LeagueQueueMember[]
+
+  @@index([creatorId])
+  @@index([status, createdAt])
+}
+
+model LeagueQueueMember {
+  id        String   @id @default(cuid())
+  postId    String
+  profileId Int
+  joinedAt  DateTime @default(now())
+
+  post    LeagueQueuePost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  profile Profile         @relation("QueuePostMembers", fields: [profileId], references: [id])
+
+  @@unique([postId, profileId])
+  @@index([postId])
+  @@index([profileId])
+}
+
+// ─── Feedback ─────────────────────────────────────────────────────────────────
+
+model Feedback {
+  id        String   @id @default(cuid())
+  profileId Int?
+  type      String   // "bug" | "suggestion"
+  title     String
+  body      String
+  status    String   @default("open") // "open" | "reviewed" | "resolved"
+  createdAt DateTime @default(now())
+
+  profile Profile? @relation("Feedback", fields: [profileId], references: [id])
+
+  @@index([profileId])
+  @@index([type, status])
+}
+
+// ─── College Prospect Scouting Notes ──────────────────────────────────────────
+
+model ProspectScoutingNote {
+  id        String   @id @default(cuid())
+  athleteId String   // CFBD athlete ID
+  authorId  Int
+  body      String
+  isPublic  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  author Profile @relation("ScoutingNotes", fields: [authorId], references: [id])
+
+  @@index([athleteId, isPublic])
+  @@index([authorId])
+  @@index([athleteId, authorId])
+}
+
+// ─── Player Season Stats Cache ────────────────────────────────────────────────
+
+model PlayerSeasonStatsCache {
+  playerId  String
+  season    Int
+  stats     Json
+  fetchedAt DateTime @default(now()) @updatedAt
+
+  @@id([playerId, season])
+  @@index([playerId])
+}
+
+// ─── Player Discussion Chat ────────────────────────────────────────────────────
+
+model PlayerChat {
+  id        String   @id @default(cuid())
+  playerId  String
+  authorId  Int
+  body      String
+  createdAt DateTime @default(now())
+
+  player SleeperPlayer @relation(fields: [playerId], references: [id])
+  author Profile       @relation("PlayerChatMessages", fields: [authorId], references: [id])
+
+  @@index([playerId, createdAt])
+  @@index([authorId])
+}

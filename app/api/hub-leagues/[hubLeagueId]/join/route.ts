@@ -4,7 +4,7 @@ import { prisma } from "@/utils/db";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { hubLeagueId: string } }
 ) {
   try {
     const user = await getAuthUser();
@@ -12,7 +12,7 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const hubLeagueId = params.id;
+    const hubLeagueId = params.hubLeagueId;
     if (!hubLeagueId) {
       return NextResponse.json({ error: "Missing hubLeagueId" }, { status: 400 });
     }

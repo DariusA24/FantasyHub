@@ -35,7 +35,7 @@ export function LeagueGrid({ leagues, leagueRecords, onLeagueClick }: LeagueGrid
         return (
           <div
             key={league.league_id}
-            className="rounded-xl bg-zinc-900/60 border border-zinc-800 p-4"
+            className="rounded-xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 p-4 cursor-pointer"
           >
             <LeagueCard 
               league_id={league.league_id}
@@ -46,7 +46,7 @@ export function LeagueGrid({ leagues, leagueRecords, onLeagueClick }: LeagueGrid
               status={league.status}
               total_rosters={league.total_rosters}
               record={record ? `${record.wins}-${record.losses}-${record.ties}` : undefined}
-              onClick={() => onLeagueClick?.(league)}
+              onClick={onLeagueClick ? () => onLeagueClick(league) : undefined}
             />
           </div>
         );
