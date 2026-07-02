@@ -8,13 +8,6 @@ const CURRENT_SEASON = 2025;
 const TTL_CURRENT = 6 * 60 * 60 * 1000;   // 6h
 const TTL_PAST    = 24 * 60 * 60 * 1000;  // 24h
 
-type Ctx = { params: Promise<{ playerId: string }> | { playerId: string } };
-async function rp(ctx: Ctx) {
-  return "then" in (ctx.params as any)
-    ? await (ctx.params as Promise<{ playerId: string }>)
-    : (ctx.params as { playerId: string });
-}
-
 async function fetchWeek(season: string, week: number, playerId: string): Promise<Record<string, number>> {
   const res = await fetch(
     `https://api.sleeper.app/v1/stats/nfl/regular/${season}/${week}`,
@@ -51,8 +44,11 @@ async function fetchFromSleeper(playerId: string, season: string): Promise<Recor
 }
 
 // GET /api/players/[playerId]/season-stats?season=2024
-export async function GET(req: NextRequest, ctx: Ctx) {
-  const { playerId } = await rp(ctx);
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ playerId: string }> }
+) {
+  const { playerId } = await params;
   const season = parseInt(req.nextUrl.searchParams.get("season") ?? String(CURRENT_SEASON));
   const ttl = season >= CURRENT_SEASON ? TTL_CURRENT : TTL_PAST;
 

@@ -619,7 +619,7 @@ export default function HubLeaguePage() {
             )}
           </section>
 
-          <LeagueBlog hubLeagueId={hubLeagueId} />
+          <LeagueBlog apiBase={`/api/hub-leagues/${hubLeagueId}`} />
 
           {/* Recent Activity */}
           <section className="col-span-2 hub-card p-5">

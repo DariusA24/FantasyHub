@@ -45,7 +45,7 @@ type PostDetail = {
 };
 
 type Props = {
-  hubLeagueId: string;
+  apiBase: string;
   postId: string;
   onClose: () => void;
   onDeleted: () => void;
@@ -63,7 +63,7 @@ function timeAgo(iso: string): string {
   return new Date(iso).toLocaleDateString();
 }
 
-export function PostViewModal({ hubLeagueId, postId, onClose, onDeleted }: Props) {
+export function PostViewModal({ apiBase, postId, onClose, onDeleted }: Props) {
   const [post, setPost] = useState<PostDetail | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [commentBody, setCommentBody] = useState("");
@@ -74,17 +74,17 @@ export function PostViewModal({ hubLeagueId, postId, onClose, onDeleted }: Props
   const commentsEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetch(`/api/hub-leagues/${hubLeagueId}/posts/${postId}`)
+    fetch(`${apiBase}/posts/${postId}`)
       .then((r) => r.json())
       .then((data) => { if (data.post) setPost(data.post); })
       .finally(() => setLoaded(true));
-  }, [hubLeagueId, postId]);
+  }, [apiBase, postId]);
 
   async function handleReaction(value: 1 | -1) {
     if (!post || reacting) return;
     setReacting(true);
     try {
-      const res = await fetch(`/api/hub-leagues/${hubLeagueId}/posts/${postId}/like`, {
+      const res = await fetch(`${apiBase}/posts/${postId}/like`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ value }),
@@ -102,7 +102,7 @@ export function PostViewModal({ hubLeagueId, postId, onClose, onDeleted }: Props
     if (deleting) return;
     setDeleting(true);
     try {
-      const res = await fetch(`/api/hub-leagues/${hubLeagueId}/posts/${postId}`, { method: "DELETE" });
+      const res = await fetch(`${apiBase}/posts/${postId}`, { method: "DELETE" });
       if (res.ok) {
         onDeleted();
         onClose();
@@ -117,7 +117,7 @@ export function PostViewModal({ hubLeagueId, postId, onClose, onDeleted }: Props
     if (!commentBody.trim() || submittingComment) return;
     setSubmittingComment(true);
     try {
-      const res = await fetch(`/api/hub-leagues/${hubLeagueId}/posts/${postId}/comments`, {
+      const res = await fetch(`${apiBase}/posts/${postId}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ body: commentBody }),

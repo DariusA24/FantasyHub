@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { LeagueNav } from "../LeagueNav";
-import { FiPlus, FiX, FiChevronLeft, FiChevronRight, FiArrowLeft, FiCamera } from "react-icons/fi";
+import { getTrophyDesign } from "./designs";
+import { FiPlus, FiX, FiChevronLeft, FiChevronRight, FiArrowLeft, FiCamera, FiRefreshCw } from "react-icons/fi";
 
 const TrophyScene = dynamic(() => import("./TrophyScene").then((m) => m.TrophyScene), { ssr: false });
 
@@ -33,6 +34,9 @@ const VARIANT_LABELS: Record<TrophyVariant, { label: string; color: string }> = 
 
 const CURRENT_YEAR = new Date().getFullYear();
 
+// shared input class for modal — works in light + dark
+const modalInput =
+  "w-full rounded-lg border border-zinc-300 dark:border-zinc-700/60 bg-white dark:bg-zinc-900/60 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-600 focus:border-amber-400/60 dark:focus:border-[#F4D06F]/40 focus:outline-none focus:ring-1 focus:ring-amber-400/20 dark:focus:ring-[#F4D06F]/20";
 
 // ─── Add Champion Modal ───────────────────────────────────────────────────────
 function AddChampionModal({
@@ -89,10 +93,13 @@ function AddChampionModal({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="w-full max-w-md rounded-2xl border border-zinc-800/80 bg-zinc-950 shadow-2xl">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800/60">
-          <h2 className="text-sm font-semibold text-zinc-100">Add Champion</h2>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60 transition">
+      <div className="w-full max-w-md rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 shadow-2xl">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 dark:border-zinc-800/60">
+          <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Add Champion</h2>
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition"
+          >
             <FiX className="h-4 w-4" />
           </button>
         </div>
@@ -101,32 +108,36 @@ function AddChampionModal({
             <div>
               <label className="block text-[10px] uppercase tracking-widest text-zinc-500 mb-1">Season Year</label>
               <input type="number" value={season} onChange={(e) => setSeason(e.target.value)} min="2000" max={CURRENT_YEAR}
-                className="w-full rounded-lg border border-zinc-700/60 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100 focus:border-[#F4D06F]/40 focus:outline-none focus:ring-1 focus:ring-[#F4D06F]/20" />
+                className={modalInput} />
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-zinc-500 mb-1">Team Name <span className="normal-case text-zinc-600">(optional)</span></label>
+              <label className="block text-[10px] uppercase tracking-widest text-zinc-500 mb-1">
+                Team Name <span className="normal-case text-zinc-400 dark:text-zinc-600">(optional)</span>
+              </label>
               <input type="text" value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="e.g. The Machines"
-                className="w-full rounded-lg border border-zinc-700/60 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:border-[#F4D06F]/40 focus:outline-none focus:ring-1 focus:ring-[#F4D06F]/20" />
+                className={modalInput} />
             </div>
           </div>
           <div>
             <label className="block text-[10px] uppercase tracking-widest text-zinc-500 mb-1">Champion Name</label>
             <input type="text" value={winnerName} onChange={(e) => setWinnerName(e.target.value)} placeholder="e.g. Darius Argueta"
-              className="w-full rounded-lg border border-zinc-700/60 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:border-[#F4D06F]/40 focus:outline-none focus:ring-1 focus:ring-[#F4D06F]/20" />
+              className={modalInput} />
           </div>
           <div className="grid grid-cols-3 gap-3">
-            {[["Wins", wins, setWins], ["Losses", losses, setLosses], ["Ties", ties, setTies]].map(([label, val, setter]) => (
-              <div key={label as string}>
-                <label className="block text-[10px] uppercase tracking-widest text-zinc-500 mb-1">{label as string}</label>
-                <input type="number" value={val as string} onChange={(e) => (setter as any)(e.target.value)} placeholder="0" min="0"
-                  className="w-full rounded-lg border border-zinc-700/60 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:border-[#F4D06F]/40 focus:outline-none focus:ring-1 focus:ring-[#F4D06F]/20" />
+            {([["Wins", wins, setWins], ["Losses", losses, setLosses], ["Ties", ties, setTies]] as const).map(([label, val, setter]) => (
+              <div key={label}>
+                <label className="block text-[10px] uppercase tracking-widest text-zinc-500 mb-1">{label}</label>
+                <input type="number" value={val} onChange={(e) => (setter as (v: string) => void)(e.target.value)} placeholder="0" min="0"
+                  className={modalInput} />
               </div>
             ))}
           </div>
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-zinc-500 mb-1">Notes <span className="normal-case text-zinc-600">(optional)</span></label>
+            <label className="block text-[10px] uppercase tracking-widest text-zinc-500 mb-1">
+              Notes <span className="normal-case text-zinc-400 dark:text-zinc-600">(optional)</span>
+            </label>
             <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. Back-to-back champion, undefeated playoffs"
-              className="w-full rounded-lg border border-zinc-700/60 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:border-[#F4D06F]/40 focus:outline-none focus:ring-1 focus:ring-[#F4D06F]/20" />
+              className={modalInput} />
           </div>
           {/* Trophy variant picker */}
           <div>
@@ -140,7 +151,7 @@ function AddChampionModal({
                   className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
                     variant === key
                       ? "border-current bg-current/10"
-                      : "border-zinc-700/60 text-zinc-500 hover:border-zinc-600"
+                      : "border-zinc-300 dark:border-zinc-700/60 text-zinc-400 dark:text-zinc-500 hover:border-zinc-400 dark:hover:border-zinc-600"
                   }`}
                   style={{ color: variant === key ? color : undefined }}
                 >
@@ -151,9 +162,12 @@ function AddChampionModal({
             </div>
           </div>
 
-          {error && <p className="text-xs text-red-400">{error}</p>}
+          {error && <p className="text-xs text-red-500">{error}</p>}
           <div className="flex justify-end gap-2 pt-1">
-            <button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm text-zinc-500 hover:text-zinc-300 transition">Cancel</button>
+            <button type="button" onClick={onClose}
+              className="rounded-lg px-4 py-2 text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition">
+              Cancel
+            </button>
             <button type="submit" disabled={!canSubmit || saving}
               className="inline-flex items-center gap-1.5 rounded-lg bg-[#F4D06F] px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-[#f0c84a] transition disabled:opacity-40 disabled:cursor-not-allowed">
               {saving ? "Saving…" : "Add to Trophy Room"}
@@ -175,55 +189,83 @@ export default function TrophyRoomPage() {
   const [isOwner, setIsOwner]     = useState(false);
   const [loaded, setLoaded]       = useState(false);
   const [showAdd, setShowAdd]     = useState(false);
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [activeIndex, setActiveIndex]   = useState(0);
   const [slideDir, setSlideDir]         = useState<"left" | "right" | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [syncing, setSyncing]   = useState(false);
+  const [syncMsg, setSyncMsg]   = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timerRef      = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const syncMsgTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  async function fetchChampions(): Promise<Champion[]> {
+    const r = await fetch(`/api/hub-leagues/${hubLeagueId}/champions`);
+    const d = await r.json();
+    setIsOwner(d.isOwner ?? false);
+    setChampions(d.champions ?? []);
+    return d.champions ?? [];
+  }
 
   useEffect(() => {
-    // TODO: replace with real API once auth is wired
-    setChampions([
-      {
-        id: "1",
-        season: "2024",
-        winnerName: "Darius Argueta",
-        teamName: "The Machines",
-        wins: 11,
-        losses: 2,
-        ties: 0,
-        notes: "Undefeated in playoffs",
-        variant: "classic",
-        photoUrl: null,
-      },
-      {
-        id: "2",
-        season: "2023",
-        winnerName: "Marcus Johnson",
-        teamName: "Air Raid",
-        wins: 10,
-        losses: 3,
-        ties: 0,
-        notes: "Highest scoring team in league history",
-        variant: "diamond",
-        photoUrl: null,
-      },
-      {
-        id: "3",
-        season: "2022",
-        winnerName: "Chris Williams",
-        teamName: "Dynasty Kings",
-        wins: 9,
-        losses: 4,
-        ties: 0,
-        notes: null,
-        variant: "ruby",
-        photoUrl: null,
-      },
-    ]);
-    setIsOwner(true);
-    setLoaded(true);
+    if (!hubLeagueId) return;
+    // Load champions; if owner has none, auto-sync from Sleeper before showing the page
+    fetch(`/api/hub-leagues/${hubLeagueId}/champions`)
+      .then((r) => r.json())
+      .then(async (data) => {
+        const champs: Champion[] = data.champions ?? [];
+        const owner: boolean = data.isOwner ?? false;
+        setIsOwner(owner);
+
+        if (champs.length > 0 || !owner) {
+          setChampions(champs);
+          setLoaded(true);
+          return;
+        }
+
+        // Owner + empty → silently auto-sync (skeleton stays up)
+        setSyncing(true);
+        try {
+          const res = await fetch(`/api/hub-leagues/${hubLeagueId}/champions/sync`, { method: "POST" });
+          const syncData = await res.json();
+          if ((syncData.synced ?? 0) > 0) {
+            const refetch = await fetch(`/api/hub-leagues/${hubLeagueId}/champions`);
+            const refetchData = await refetch.json();
+            setChampions(refetchData.champions ?? []);
+          }
+        } catch { /* silent */ } finally {
+          setSyncing(false);
+          setLoaded(true);
+        }
+      })
+      .catch(() => {
+        setChampions([]);
+        setLoaded(true);
+      });
   }, [hubLeagueId]);
+
+  async function handleSync() {
+    setSyncing(true);
+    setSyncMsg(null);
+    try {
+      const res = await fetch(`/api/hub-leagues/${hubLeagueId}/champions/sync`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setSyncMsg(`Error: ${data.error ?? "Unknown"}`);
+        return;
+      }
+      const msg = data.synced === 0
+        ? "No completed seasons found"
+        : `Synced ${data.synced} season${data.synced === 1 ? "" : "s"}`;
+      setSyncMsg(msg);
+      if (data.synced > 0) await fetchChampions();
+    } catch {
+      setSyncMsg("Sync failed — try again");
+    } finally {
+      setSyncing(false);
+      if (syncMsgTimer.current) clearTimeout(syncMsgTimer.current);
+      syncMsgTimer.current = setTimeout(() => setSyncMsg(null), 4000);
+    }
+  }
 
   function handleCreated(champion: Champion) {
     setChampions((prev) => {
@@ -261,10 +303,7 @@ export default function TrophyRoomPage() {
     if (nextIndex < 0 || nextIndex >= champions.length) return;
     if (timerRef.current) clearTimeout(timerRef.current);
 
-    // Slide out
     setSlideDir(dir);
-
-    // After exit animation, swap and slide in from opposite side
     timerRef.current = setTimeout(() => {
       setActiveIndex(nextIndex);
       setSlideDir(dir === "left" ? "right" : "left");
@@ -276,7 +315,6 @@ export default function TrophyRoomPage() {
   const canPrev  = activeIndex > 0;
   const canNext  = activeIndex < champions.length - 1;
 
-  // Compute transition style
   const slideStyle: React.CSSProperties = (() => {
     if (!slideDir) return { opacity: 1, transform: "translateX(0)", transition: "opacity 0.28s ease, transform 0.28s ease" };
     const exiting = slideDir === "left"
@@ -286,11 +324,8 @@ export default function TrophyRoomPage() {
   })();
 
   return (
-    <div
-      className="min-h-screen"
-      style={{ background: "radial-gradient(ellipse at 50% 0%, #0f0d18 0%, #06050d 60%, #020208 100%)" }}
-    >
-      <div className="mx-auto max-w-5xl px-4 pb-24 pt-6 text-zinc-200">
+    <div className="min-h-screen bg-zinc-100 dark:bg-zinc-950 dark:[background:radial-gradient(ellipse_at_50%_0%,#0f0d18_0%,#06050d_60%,#020208_100%)]">
+      <div className="mx-auto max-w-5xl px-4 pb-24 pt-6 text-zinc-800 dark:text-zinc-200">
         <LeagueNav />
 
         {/* Header */}
@@ -298,25 +333,43 @@ export default function TrophyRoomPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.back()}
-              className="flex items-center gap-1.5 text-zinc-500 hover:text-zinc-200 transition text-sm"
+              className="flex items-center gap-1.5 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200 transition text-sm"
             >
               <FiArrowLeft className="h-4 w-4" />
               Back
             </button>
-            <div className="w-px h-5 bg-zinc-800" />
+            <div className="w-px h-5 bg-zinc-300 dark:bg-zinc-800" />
             <div>
-              <p className="text-[10px] uppercase tracking-[0.25em] text-[#F4D06F]/40 mb-0.5">Hall of Fame</p>
-              <h1 className="text-3xl font-black text-zinc-100">Trophy Room</h1>
+              <p className="text-[10px] uppercase tracking-[0.25em] text-amber-600/70 dark:text-[#F4D06F]/40 mb-0.5">Hall of Fame</p>
+              <h1 className="text-3xl font-black text-zinc-900 dark:text-zinc-100">Trophy Room</h1>
             </div>
           </div>
+
           {isOwner && (
-            <button
-              onClick={() => setShowAdd(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-[#F4D06F]/30 bg-[#F4D06F]/5 px-4 py-2 text-sm font-medium text-[#F4D06F] hover:bg-[#F4D06F]/10 transition"
-            >
-              <FiPlus className="h-4 w-4" />
-              Add Champion
-            </button>
+            <div className="flex items-center gap-2">
+              {/* Sync message */}
+              {syncMsg && (
+                <span className="text-xs text-zinc-500 dark:text-zinc-400">{syncMsg}</span>
+              )}
+              <button
+                onClick={handleSync}
+                disabled={syncing}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-300 dark:border-zinc-700/60 bg-white dark:bg-zinc-800/40 px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {syncing
+                  ? <span className="h-3.5 w-3.5 rounded-full border-2 border-zinc-400/30 border-t-zinc-500 dark:border-t-zinc-300 animate-spin" />
+                  : <FiRefreshCw className="h-3.5 w-3.5" />
+                }
+                {syncing ? "Syncing…" : "Sync from Sleeper"}
+              </button>
+              <button
+                onClick={() => setShowAdd(true)}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-[#F4D06F]/30 bg-[#F4D06F]/5 px-4 py-2 text-sm font-medium text-amber-700 dark:text-[#F4D06F] hover:bg-[#F4D06F]/10 transition"
+              >
+                <FiPlus className="h-4 w-4" />
+                Add Champion
+              </button>
+            </div>
           )}
         </div>
 
@@ -324,49 +377,66 @@ export default function TrophyRoomPage() {
         {!loaded ? (
           <div className="mt-16 flex justify-center animate-pulse">
             <div className="flex flex-col items-center gap-0">
-              <div className="w-36 h-52 rounded-xl bg-zinc-800/40 mb-0" />
-              <div className="w-52 h-36 rounded-sm bg-zinc-800/30" />
+              <div className="w-36 h-52 rounded-xl bg-zinc-200 dark:bg-zinc-800/40 mb-0" />
+              <div className="w-52 h-36 rounded-sm bg-zinc-200/70 dark:bg-zinc-800/30" />
             </div>
           </div>
         ) : !featured ? (
           <div className="flex flex-col items-center justify-center py-32 text-center">
             <div className="mb-4 text-6xl opacity-10">🏆</div>
-            <p className="text-sm font-medium text-zinc-400">No champions yet</p>
-            <p className="mt-1 text-xs text-zinc-600 max-w-[200px]">
-              {isOwner ? "Add the first champion to start building your legacy." : "No champions have been crowned yet."}
+            <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">No champions yet</p>
+            <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-600 max-w-[240px]">
+              {isOwner
+                ? 'Click "Sync from Sleeper" to auto-fill winners from your league history, or add them manually.'
+                : "No champions have been crowned yet."}
             </p>
             {isOwner && (
-              <button
-                onClick={() => setShowAdd(true)}
-                className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-[#F4D06F]/30 bg-[#F4D06F]/5 px-4 py-2 text-sm font-medium text-[#F4D06F] hover:bg-[#F4D06F]/10 transition"
-              >
-                <FiPlus className="h-4 w-4" />
-                Add First Champion
-              </button>
+              <div className="mt-4 flex gap-2">
+                <button
+                  onClick={handleSync}
+                  disabled={syncing}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-300 dark:border-zinc-700/60 bg-white dark:bg-zinc-800/40 px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition disabled:opacity-40"
+                >
+                  {syncing ? <span className="h-3.5 w-3.5 rounded-full border-2 border-zinc-400/30 border-t-zinc-500 animate-spin" /> : <FiRefreshCw className="h-3.5 w-3.5" />}
+                  {syncing ? "Syncing…" : "Sync from Sleeper"}
+                </button>
+                <button
+                  onClick={() => setShowAdd(true)}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-[#F4D06F]/30 bg-[#F4D06F]/5 px-4 py-2 text-sm font-medium text-amber-700 dark:text-[#F4D06F] hover:bg-[#F4D06F]/10 transition"
+                >
+                  <FiPlus className="h-4 w-4" />
+                  Add Manually
+                </button>
+              </div>
             )}
           </div>
         ) : (
           <>
-            {/* 3D Stage with overlays */}
-            <div className="relative rounded-2xl overflow-hidden border border-zinc-800/40" style={{ background: "#06050d" }}>
+            {/* 3D Stage — always dark (it's the showcase) */}
+            <div
+              className="relative rounded-2xl overflow-hidden border border-zinc-300 dark:border-zinc-800/40"
+              style={{ background: "#06050d" }}
+            >
               <div style={slideStyle}>
                 <TrophyScene champion={featured} />
               </div>
 
               {/* Champion info overlay — bottom center */}
-              <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center pb-6 pointer-events-none"
+              <div
+                className="absolute bottom-0 left-0 right-0 flex flex-col items-center pb-6 pointer-events-none"
                 style={{ background: "linear-gradient(to top, rgba(6,5,13,0.92) 0%, rgba(6,5,13,0.4) 60%, transparent 100%)", paddingTop: 80 }}
               >
-                {/* Trophy variant badge */}
-                <span className="mb-2 rounded-full border px-2 py-0.5 text-[9px] uppercase tracking-widest font-semibold"
+                {/* Trophy design + variant badge */}
+                <span
+                  className="mb-2 rounded-full border px-2 py-0.5 text-[9px] uppercase tracking-widest font-semibold"
                   style={{ borderColor: `${VARIANT_LABELS[featured.variant]?.color}40`, color: VARIANT_LABELS[featured.variant]?.color }}
                 >
-                  {VARIANT_LABELS[featured.variant]?.label}
+                  {getTrophyDesign(featured.season).label} · {VARIANT_LABELS[featured.variant]?.label}
                 </span>
 
                 {/* Photo + text row */}
                 <div className="flex items-center gap-4">
-                  {/* Photo — commissioner can click to change, others just see it */}
+                  {/* Photo */}
                   <div className="relative shrink-0">
                     {featured.photoUrl ? (
                       <img
@@ -381,7 +451,6 @@ export default function TrophyRoomPage() {
                       </div>
                     ) : null}
 
-                    {/* Commissioner overlay button */}
                     {isOwner && (
                       <button
                         onClick={() => photoInputRef.current?.click()}
@@ -397,7 +466,6 @@ export default function TrophyRoomPage() {
                     )}
                   </div>
 
-                  {/* Hidden file input */}
                   {isOwner && (
                     <input
                       ref={photoInputRef}
@@ -407,6 +475,7 @@ export default function TrophyRoomPage() {
                       onChange={handlePhotoUpload}
                     />
                   )}
+
                   <div className="text-center">
                     <p className="text-[10px] uppercase tracking-[0.3em] text-[#F4D06F]/50 mb-0.5">{featured.season} Champion</p>
                     <p className="text-2xl font-black text-white leading-tight">{featured.winnerName}</p>

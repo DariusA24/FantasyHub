@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { FiStar, FiUser, FiArrowUpRight, FiLock } from "react-icons/fi";
+import { FiArrowLeft, FiStar, FiUser, FiArrowUpRight, FiLock } from "react-icons/fi";
 import { HiStar } from "react-icons/hi";
 import { MdOutlineSportsFootball } from "react-icons/md";
 
@@ -432,6 +433,7 @@ function GradeLegend({ isFuture }: { isFuture: boolean }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ScoutingPage() {
+  const router = useRouter();
   const [mode, setMode] = useState<"dynasty" | "future">("dynasty");
   const [classYear, setClassYear] = useState<number | null>(null); // null = all for dynasty, default year for future
   const [position, setPosition] = useState("ALL");
@@ -586,6 +588,13 @@ export default function ScoutingPage() {
 
         {/* ── Header ──────────────────────────────────────────────── */}
         <div className="mb-8">
+          <button
+            onClick={() => router.back()}
+            className="mb-4 inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
+          >
+            <FiArrowLeft className="h-3.5 w-3.5" />
+            Back
+          </button>
           <div className="inline-flex items-center gap-2 rounded-full border border-zinc-200 dark:border-zinc-800/70 bg-zinc-100/80 dark:bg-black/40 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400 mb-3">
             <MdOutlineSportsFootball className="h-3 w-3 text-amber-500 dark:text-[#F4D06F]" />
             Scouting

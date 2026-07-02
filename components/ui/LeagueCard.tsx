@@ -13,6 +13,7 @@ type LeagueCardProps = {
   total_rosters?: number;
   status?: string;
   record?: string;
+  platform?: 'sleeper' | 'espn';
   onClick?: () => void;
 };
 
@@ -25,6 +26,7 @@ export function LeagueCard({
   total_rosters,
   status,
   record,
+  platform,
   onClick,
 }: LeagueCardProps) {
   const router = useRouter(); // NEW
@@ -120,6 +122,16 @@ export function LeagueCard({
               {record && (
                 <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-100">
                   {record}
+                </span>
+              )}
+
+              {platform && (
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  platform === 'espn'
+                    ? 'bg-red-500/10 text-red-600 dark:text-red-400'
+                    : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                }`}>
+                  {platform === 'espn' ? 'ESPN' : 'Sleeper'}
                 </span>
               )}
             </div>

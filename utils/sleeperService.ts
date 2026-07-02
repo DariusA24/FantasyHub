@@ -59,3 +59,11 @@ export async function getLeagueUsers(leagueId: string) {
 export async function getAllNflPlayers(): Promise<Record<string, any>> {
   return sleeperRequest<Record<string, any>>('/players/nfl', TTL.players);
 }
+
+export async function getLeagueDrafts(leagueId: string) {
+  return sleeperRequest<any[]>(`/league/${encodeURIComponent(leagueId)}/drafts`, TTL.leagues);
+}
+
+export async function getDraftPicks(draftId: string) {
+  return sleeperRequest<any[]>(`/draft/${encodeURIComponent(draftId)}/picks`, TTL.players);
+}

@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import { prisma } from "@/utils/db";
 
 export const dynamic = "force-dynamic";
 
 const ESPN_BASE = "https://fantasy.espn.com/apis/v3/games/ffl";
 
-// Proxy ESPN public league data. Query params: season, week (optional)
-// Returns: { settings, teams, schedule (current week matchups) }
+// Proxy ESPN league data. Attaches the user's saved cookies for private league access.
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ leagueId: string }> },
@@ -15,6 +16,23 @@ export async function GET(
   const season = sp.get("season") ?? new Date().getFullYear().toString();
   const week   = sp.get("week");
 
+  // Look up saved ESPN credentials for the current user (if logged in)
+  let cookieHeader: string | undefined;
+  try {
+    const { userId } = await auth();
+    if (userId) {
+      const profile = await prisma.profile.findUnique({
+        where: { clerkId: userId },
+        select: { espnSwid: true, espnS2: true },
+      });
+      if (profile?.espnSwid && profile?.espnS2) {
+        cookieHeader = `SWID=${profile.espnSwid}; espn_s2=${profile.espnS2}`;
+      }
+    }
+  } catch {
+    // Non-fatal — proceed without credentials
+  }
+
   const views = ["mSettings", "mTeam", "mRoster"];
   if (week) views.push("mMatchup");
 
@@ -23,13 +41,22 @@ export async function GET(
   const url     = `${ESPN_BASE}/seasons/${season}/segments/0/leagues/${leagueId}?${viewStr}${weekStr}`;
 
   try {
+    const headers: Record<string, string> = {
+      Accept: "application/json",
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    };
+    if (cookieHeader) headers["Cookie"] = cookieHeader;
+
     const res = await fetch(url, {
-      headers: { Accept: "application/json" },
+      headers,
       signal: AbortSignal.timeout(10_000),
     });
 
     if (res.status === 401 || res.status === 403) {
-      return NextResponse.json({ error: "This league is private." }, { status: 403 });
+      return NextResponse.json(
+        { error: "This league is private. Add your ESPN cookies in your profile settings to access it." },
+        { status: 403 },
+      );
     }
     if (res.status === 404) {
       return NextResponse.json({ error: "League not found." }, { status: 404 });
@@ -40,7 +67,6 @@ export async function GET(
 
     const raw = await res.json();
 
-    // Shape the response into something clean
     const settings = {
       name: raw.settings?.name ?? "ESPN League",
       size: raw.settings?.size ?? 0,
@@ -61,26 +87,27 @@ export async function GET(
       playoffSeed: t.playoffSeed ?? null,
       roster: (t.roster?.entries ?? []).map((e: any) => ({
         playerId: e.playerId,
-        fullName: e.playerPoolEntry?.playerPoolEntry?.player?.fullName
-          ?? e.playerPoolEntry?.player?.fullName
-          ?? "Unknown",
-        defaultPosition: e.playerPoolEntry?.playerPoolEntry?.player?.defaultPositionId
-          ?? e.playerPoolEntry?.player?.defaultPositionId
-          ?? null,
-        injuryStatus: e.playerPoolEntry?.playerPoolEntry?.injuryStatus
-          ?? e.playerPoolEntry?.injuryStatus
-          ?? null,
+        fullName:
+          e.playerPoolEntry?.playerPoolEntry?.player?.fullName ??
+          e.playerPoolEntry?.player?.fullName ??
+          "Unknown",
+        defaultPosition:
+          e.playerPoolEntry?.playerPoolEntry?.player?.defaultPositionId ??
+          e.playerPoolEntry?.player?.defaultPositionId ??
+          null,
+        injuryStatus:
+          e.playerPoolEntry?.playerPoolEntry?.injuryStatus ??
+          e.playerPoolEntry?.injuryStatus ??
+          null,
         lineupSlotId: e.lineupSlotId,
       })),
     }));
 
-    // Sort by wins desc, then points for
     const standings = [...teams].sort((a, b) => {
       if (b.wins !== a.wins) return b.wins - a.wins;
       return b.pointsFor - a.pointsFor;
     });
 
-    // Current week matchups
     const matchups = week
       ? (raw.schedule ?? [])
           .filter((m: any) => m.matchupPeriodId === parseInt(week))
@@ -108,5 +135,11 @@ type EspnTeam = {
   pointsFor: number;
   pointsAgainst: number;
   playoffSeed: number | null;
-  roster: { playerId: number; fullName: string; defaultPosition: number | null; injuryStatus: string | null; lineupSlotId: number }[];
+  roster: {
+    playerId: number;
+    fullName: string;
+    defaultPosition: number | null;
+    injuryStatus: string | null;
+    lineupSlotId: number;
+  }[];
 };

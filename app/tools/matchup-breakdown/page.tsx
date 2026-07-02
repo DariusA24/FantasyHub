@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { FiSearch, FiUsers } from "react-icons/fi";
-import { CompareCard, type ComparePlayer } from "./components/CompareCard";
+import { useRouter } from "next/navigation";
+import { FiArrowLeft, FiSearch, FiUsers } from "react-icons/fi";
+import { CompareCard, type ComparePlayer, type GameOdds, type PlayerProps } from "./components/CompareCard";
+import { FactorsList } from "./components/FactorsList";
 import { VoteSection } from "./components/VoteSection";
 import { GateMatchup } from "./components/GateMatchup";
 
@@ -18,7 +20,7 @@ const POSITION_COLOR: Record<string, string> = {
 };
 
 type SearchResult = {
-  id: string; full_name: string | null; position: string | null; team: string | null; age?: number | null;
+  id: string; full_name: string | null; position: string | null; team: string | null; age?: number | null; injury_status?: string | null;
 };
 
 type NflState = { week: number; display_week: number; season: string; season_type: string };
@@ -56,6 +58,14 @@ function ToggleGroup<T extends string | number>({
   );
 }
 
+type PlayerStatEntry = { ydsPerGame: number | null; avgPts: number | null };
+
+function ydsLabel(pos: string | null) {
+  if (pos === "QB") return "Pass Yds/G";
+  if (pos === "RB") return "Rush Yds/G";
+  return "Rec Yds/G";
+}
+
 // ─── Player Search ─────────────────────────────────────────────────────────────
 function PlayerSearch({
   projectionMap,
@@ -63,18 +73,22 @@ function PlayerSearch({
   excluded,
   onAdd,
   disabled,
+  scheduleMap,
 }: {
   projectionMap: Record<string, ProjectionEntry>;
   ppr: 0 | 0.5 | 1;
   excluded: string[];
   onAdd: (p: ComparePlayer) => void;
   disabled: boolean;
+  scheduleMap: Record<string, string>;
 }) {
   const [query, setQuery]         = useState("");
   const [results, setResults]     = useState<SearchResult[]>([]);
   const [open, setOpen]           = useState(false);
   const [searching, setSearching] = useState(false);
   const [highlighted, setHighlighted] = useState(-1);
+  // playerId → stats (undefined = not fetched, null = loading, object = loaded)
+  const [statsCache, setStatsCache] = useState<Record<string, PlayerStatEntry | null>>({});
   const debounceRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -92,7 +106,7 @@ function PlayerSearch({
     debounceRef.current = setTimeout(async () => {
       setSearching(true);
       try {
-        const res  = await fetch(`/api/sleeper/players/search?q=${encodeURIComponent(q)}&limit=12`);
+        const res  = await fetch(`/api/sleeper/players/search?q=${encodeURIComponent(q)}&limit=8`);
         const data = await res.json();
         setResults(Array.isArray(data) ? data : []);
         setOpen(true);
@@ -102,6 +116,39 @@ function PlayerSearch({
   }, []);
 
   useEffect(() => { search(query); }, [query, search]);
+
+  // Fetch season stats for each search result (skeletons for uncached)
+  useEffect(() => {
+    if (results.length === 0) return;
+    const uncached = results.filter((r) => !(r.id in statsCache));
+    if (uncached.length === 0) return;
+
+    // Mark them all as loading
+    setStatsCache((prev) => {
+      const next = { ...prev };
+      for (const r of uncached) next[r.id] = null;
+      return next;
+    });
+
+    for (const r of uncached) {
+      fetch(`/api/players/${r.id}/season-stats?season=${STATS_SEASON}`)
+        .then((res) => res.json())
+        .then((data) => {
+          const gp = data?.gp ?? 0;
+          const yds =
+            r.position === "QB" ? (data?.pass_yd ?? 0) :
+            r.position === "RB" ? (data?.rush_yd ?? 0) :
+            (data?.rec_yd ?? 0);
+          const ydsPerGame = gp > 0 ? Math.round((yds / gp) * 10) / 10 : null;
+          const avgPts     = gp > 0 ? Math.round(((data?.pts_ppr ?? 0) / gp) * 10) / 10 : null;
+          setStatsCache((prev) => ({ ...prev, [r.id]: { ydsPerGame, avgPts } }));
+        })
+        .catch(() => {
+          setStatsCache((prev) => ({ ...prev, [r.id]: { ydsPerGame: null, avgPts: null } }));
+        });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [results]);
 
   const filtered = results.filter((r) => !excluded.includes(r.id));
 
@@ -116,12 +163,13 @@ function PlayerSearch({
   const handleSelect = (r: SearchResult) => {
     const pts = getPts(r.id) ?? 0;
     onAdd({
-      sleeperId: r.id,
-      name: r.full_name ?? r.id,
-      position: r.position ?? "",
-      team: r.team ?? "",
+      sleeperId:    r.id,
+      name:         r.full_name ?? r.id,
+      position:     r.position ?? "",
+      team:         r.team ?? "",
       projectedPts: pts,
-      age: r.age ?? null,
+      age:          r.age ?? null,
+      injuryStatus: r.injury_status ?? null,
     });
     setQuery(""); setResults([]); setOpen(false);
   };
@@ -159,29 +207,66 @@ function PlayerSearch({
             {filtered.map((r, i) => {
               const pts      = getPts(r.id);
               const posClass = POSITION_COLOR[r.position ?? ""] ?? POSITION_COLOR["DEF"];
+              const stats    = statsCache[r.id]; // null = loading, object = loaded, undefined = not started
+              const opponent = r.team ? scheduleMap[r.team] : null;
+              const isHl     = i === highlighted;
+
               return (
                 <li key={r.id}>
                   <button
                     onMouseDown={() => handleSelect(r)}
                     onMouseEnter={() => setHighlighted(i)}
-                    className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
-                      i === highlighted ? "bg-zinc-100 dark:bg-zinc-800/70" : "hover:bg-zinc-50 dark:hover:bg-zinc-800/40"
+                    className={`w-full flex items-start gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
+                      isHl ? "bg-zinc-100 dark:bg-zinc-800/70" : "hover:bg-zinc-50 dark:hover:bg-zinc-800/40"
                     }`}
                   >
-                    <span className={`shrink-0 rounded-full border px-1.5 py-px text-[9px] font-bold ${posClass}`}>
+                    <span className={`shrink-0 mt-0.5 rounded-full border px-1.5 py-px text-[9px] font-bold ${posClass}`}>
                       {r.position}
                     </span>
+
+                    {/* Name + stats row */}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">{r.full_name}</p>
-                      <p className="text-[10px] text-zinc-500">{r.team ?? "FA"}</p>
+                      <div className="mt-1 flex items-center gap-2 flex-wrap">
+                        {/* Team · opponent */}
+                        <span className="text-[10px] text-zinc-500">
+                          {r.team ?? "FA"}
+                          {opponent ? <span className="text-zinc-400 dark:text-zinc-600"> vs {opponent}</span> : ""}
+                        </span>
+
+                        {/* Yds/G */}
+                        <span className="text-[10px] text-zinc-400 dark:text-zinc-600">·</span>
+                        {stats === null ? (
+                          <span className="h-2.5 w-12 rounded bg-zinc-200 dark:bg-zinc-800 animate-pulse inline-block" />
+                        ) : stats ? (
+                          <span className="text-[10px] font-semibold text-zinc-600 dark:text-zinc-400 tabular-nums">
+                            {stats.ydsPerGame !== null ? `${stats.ydsPerGame.toFixed(0)} ${ydsLabel(r.position ?? null)}` : "—"}
+                          </span>
+                        ) : null}
+
+                        {/* Avg pts/g */}
+                        {stats && stats.avgPts !== null && (
+                          <>
+                            <span className="text-[10px] text-zinc-400 dark:text-zinc-600">·</span>
+                            <span className="text-[10px] font-semibold text-zinc-600 dark:text-zinc-400 tabular-nums">
+                              {stats.avgPts.toFixed(1)} pts/g
+                            </span>
+                          </>
+                        )}
+                      </div>
                     </div>
-                    {pts != null && pts > 0 ? (
-                      <span className="shrink-0 text-xs font-bold text-zinc-600 dark:text-zinc-400 tabular-nums">
-                        {pts.toFixed(1)} pts
-                      </span>
-                    ) : (
-                      <span className="shrink-0 text-[10px] text-zinc-400 dark:text-zinc-600">No proj.</span>
-                    )}
+
+                    {/* Projected pts this week */}
+                    <div className="shrink-0 text-right">
+                      {pts != null && pts > 0 ? (
+                        <>
+                          <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300 tabular-nums">{pts.toFixed(1)}</span>
+                          <p className="text-[9px] text-zinc-400 dark:text-zinc-600 uppercase tracking-wide">proj</p>
+                        </>
+                      ) : (
+                        <span className="text-[10px] text-zinc-400 dark:text-zinc-600">No proj.</span>
+                      )}
+                    </div>
                   </button>
                 </li>
               );
@@ -193,8 +278,11 @@ function PlayerSearch({
   );
 }
 
+const STATS_SEASON = 2025;
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function StartSitPage() {
+  const router = useRouter();
   const [ppr, setPpr]           = useState<0 | 0.5 | 1>(1);
   const [nflState, setNflState] = useState<NflState | null>(null);
   // null = unknown (checking localStorage), false = gate showing, true = cleared
@@ -203,6 +291,15 @@ export default function StartSitPage() {
   const [projLoading, setProjLoading]     = useState(false);
   const [projStale, setProjStale]         = useState(false);
   const [players, setPlayers]   = useState<ComparePlayer[]>([]);
+
+  // team → opponent map for the current week
+  const [scheduleMap, setScheduleMap] = useState<Record<string, string>>({});
+  const scheduleRef = useRef<Record<string, string>>({});
+  // team → DraftKings game odds
+  const [oddsMap, setOddsMap] = useState<Record<string, GameOdds>>({});
+  const oddsRef = useRef<Record<string, GameOdds>>({});
+  // tracks which playerIds have already had supplemental data fetched
+  const fetchedRef  = useRef<Set<string>>(new Set());
 
   // Fetch current NFL week — gate visibility is managed per-pair in GateMatchup
   useEffect(() => {
@@ -248,6 +345,24 @@ export default function StartSitPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nflState]);
 
+  // Fetch current week's opponent schedule
+  useEffect(() => {
+    if (!nflState) return;
+    fetch(`/api/start-sit/schedule?week=${nflState.display_week}&season=${nflState.season}`)
+      .then((r) => r.json())
+      .then((d: { schedule?: Record<string, string>; odds?: Record<string, GameOdds> }) => {
+        if (d.schedule) {
+          scheduleRef.current = d.schedule;
+          setScheduleMap(d.schedule);
+        }
+        if (d.odds) {
+          oddsRef.current = d.odds;
+          setOddsMap(d.odds);
+        }
+      })
+      .catch(() => {});
+  }, [nflState]);
+
   // Re-compute projected pts when PPR changes
   useEffect(() => {
     if (Object.keys(projectionMap).length === 0) return;
@@ -259,9 +374,60 @@ export default function StartSitPage() {
     }));
   }, [ppr, projectionMap]);
 
+  // Fetch supplemental stats (yds/game, def-vs-pos) for newly added players
+  useEffect(() => {
+    for (const player of players) {
+      if (fetchedRef.current.has(player.sleeperId)) continue;
+      fetchedRef.current.add(player.sleeperId);
+
+      const opponent = player.team ? (scheduleRef.current[player.team] ?? null) : null;
+
+      (async () => {
+        const [statsData, dvpData, propsData] = await Promise.all([
+          fetch(`/api/players/${player.sleeperId}/season-stats?season=${STATS_SEASON}`)
+            .then((r) => r.json())
+            .catch(() => ({})),
+          opponent && player.position
+            ? fetch(`/api/start-sit/def-vs-pos?team=${opponent}&pos=${player.position}&season=${STATS_SEASON}`)
+                .then((r) => r.json())
+                .catch(() => null)
+            : Promise.resolve(null),
+          player.name && player.team && player.position
+            ? fetch(`/api/start-sit/player-props?name=${encodeURIComponent(player.name)}&team=${encodeURIComponent(player.team)}&pos=${encodeURIComponent(player.position)}`)
+                .then((r) => r.json())
+                .catch(() => null)
+            : Promise.resolve(null),
+        ]);
+
+        const gp = statsData?.gp ?? 0;
+        const yds =
+          player.position === "QB"
+            ? (statsData?.pass_yd ?? 0)
+            : player.position === "RB"
+            ? (statsData?.rush_yd ?? 0)
+            : (statsData?.rec_yd ?? 0);
+        const ydsPerGame    = gp > 0 ? Math.round((yds / gp) * 10) / 10 : null;
+        const avgPtsPerGame = gp > 0 ? Math.round(((statsData?.pts_ppr ?? 0) / gp) * 10) / 10 : null;
+        const defVsPos      = dvpData?.avgPts ?? null;
+        const gameOdds      = player.team ? (oddsRef.current[player.team] ?? null) : null;
+        const props: PlayerProps | null = propsData
+          ? { ydsLine: propsData.ydsLine ?? null, ydsOver: propsData.ydsOver ?? null, ydsUnder: propsData.ydsUnder ?? null, anytimeTd: propsData.anytimeTd ?? null }
+          : null;
+
+        setPlayers((prev) =>
+          prev.map((p) =>
+            p.sleeperId === player.sleeperId
+              ? { ...p, opponent, ydsPerGame, avgPtsPerGame, defVsPos, gameOdds, props }
+              : p
+          )
+        );
+      })();
+    }
+  }, [players]);
+
   const addPlayer = (p: ComparePlayer) => {
     if (players.length >= MAX_PLAYERS) return;
-    setPlayers((prev) => [...prev, p]);
+    setPlayers((prev) => [...prev, { ...p, ydsPerGame: undefined, defVsPos: undefined, avgPtsPerGame: undefined, gameOdds: undefined, props: undefined }]);
   };
 
   const removePlayer = (id: string) => setPlayers((prev) => prev.filter((p) => p.sleeperId !== id));
@@ -313,6 +479,13 @@ export default function StartSitPage() {
 
         {/* Header */}
         <div className="mb-8">
+          <button
+            onClick={() => router.back()}
+            className="mb-4 inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
+          >
+            <FiArrowLeft className="h-3.5 w-3.5" />
+            Back
+          </button>
           <div className="inline-flex items-center gap-2 rounded-full border border-zinc-200 dark:border-zinc-800/70 bg-zinc-100/80 dark:bg-black/40 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400 mb-3">
             <span className="h-1.5 w-1.5 rounded-full bg-amber-500 dark:bg-[#F4D06F] shadow-[0_0_8px_rgba(244,208,111,0.6)]" />
             Tools
@@ -378,6 +551,7 @@ export default function StartSitPage() {
             excluded={excluded}
             onAdd={addPlayer}
             disabled={players.length >= MAX_PLAYERS}
+            scheduleMap={scheduleMap}
           />
           {players.length === 1 && (
             <p className="mt-2 text-center text-[11px] text-zinc-500 dark:text-zinc-600">
@@ -451,6 +625,9 @@ export default function StartSitPage() {
                 </p>
               )}
             </div>
+
+            {/* Decision factors list */}
+            <FactorsList players={ranked} />
 
             {/* Community vote */}
             {nflState && (

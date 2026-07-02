@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ComparePlayer } from "./CompareCard";
 
 type VoteData = {
@@ -8,6 +8,16 @@ type VoteData = {
   myVote: string | null;
   total: number;
 };
+
+function getGuestToken(): string {
+  const key = "fh_guest_token";
+  let token = localStorage.getItem(key);
+  if (!token) {
+    token = crypto.randomUUID();
+    localStorage.setItem(key, token);
+  }
+  return token;
+}
 
 export function VoteSection({
   players,
@@ -21,13 +31,19 @@ export function VoteSection({
   const [data, setData]       = useState<VoteData>({ votes: {}, myVote: null, total: 0 });
   const [loading, setLoading] = useState(true);
   const [voting, setVoting]   = useState(false);
+  const guestTokenRef         = useRef<string | null>(null);
 
   const ids = players.map((p) => p.sleeperId).sort().join(",");
 
   useEffect(() => {
+    guestTokenRef.current = getGuestToken();
+  }, []);
+
+  useEffect(() => {
     if (players.length < 2) return;
     setLoading(true);
-    fetch(`/api/start-sit/vote?players=${ids}&week=${week}&season=${season}`)
+    const token = guestTokenRef.current ?? "";
+    fetch(`/api/start-sit/vote?players=${ids}&week=${week}&season=${season}&guestToken=${token}`)
       .then((r) => r.json())
       .then((d) => setData(d))
       .catch(() => {})
@@ -45,14 +61,11 @@ export function VoteSection({
           chosenPlayerId,
           week,
           season,
+          guestToken: guestTokenRef.current,
         }),
       });
-      if (res.status === 401) {
-        alert("Sign in to vote.");
-        return;
-      }
       const d = await res.json();
-      setData(d);
+      if (res.ok) setData(d);
     } catch {
     } finally {
       setVoting(false);
@@ -84,8 +97,8 @@ export function VoteSection({
       {/* Players */}
       <div className="divide-y divide-zinc-100 dark:divide-zinc-800/40">
         {players.map((player) => {
-          const count   = data.votes[player.sleeperId] ?? 0;
-          const pct     = hasVotes ? Math.round((count / data.total) * 100) : 0;
+          const count    = data.votes[player.sleeperId] ?? 0;
+          const pct      = hasVotes ? Math.round((count / data.total) * 100) : 0;
           const isMyVote = data.myVote === player.sleeperId;
           const isLeader = hasVotes && count === Math.max(...Object.values(data.votes));
 

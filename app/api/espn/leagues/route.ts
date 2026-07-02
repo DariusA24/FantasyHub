@@ -4,12 +4,24 @@ import { prisma } from "@/utils/db";
 
 export const dynamic = "force-dynamic";
 
+async function getProfileAndCookie(userId: string) {
+  const profile = await prisma.profile.findUnique({
+    where: { clerkId: userId },
+    select: { id: true, espnSwid: true, espnS2: true },
+  });
+  const cookieHeader =
+    profile?.espnSwid && profile?.espnS2
+      ? `SWID=${profile.espnSwid}; espn_s2=${profile.espnS2}`
+      : undefined;
+  return { profile, cookieHeader };
+}
+
 // GET — list user's saved ESPN leagues
 export async function GET() {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const profile = await prisma.profile.findUnique({ where: { clerkId: userId } });
+  const { profile } = await getProfileAndCookie(userId);
   if (!profile) return NextResponse.json({ error: "Profile not found" }, { status: 404 });
 
   const leagues = await prisma.espnLeague.findMany({
@@ -20,38 +32,23 @@ export async function GET() {
   return NextResponse.json({ leagues });
 }
 
-// POST — save a new ESPN league (fetches name/teamCount from ESPN first)
+// POST — save a new ESPN league (fetches name/teamCount from ESPN using saved credentials)
 export async function POST(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const profile = await prisma.profile.findUnique({ where: { clerkId: userId } });
+  const { profile, cookieHeader } = await getProfileAndCookie(userId);
   if (!profile) return NextResponse.json({ error: "Profile not found" }, { status: 404 });
 
-  const { leagueId, season } = await req.json();
+  const { leagueId, season, name: providedName } = await req.json();
   if (!leagueId || !season) {
     return NextResponse.json({ error: "leagueId and season are required" }, { status: 400 });
   }
 
-  // Fetch from ESPN to validate and cache name/teamCount
-  let name: string | null = null;
-  let teamCount: number | null = null;
-  try {
-    const url = `https://fantasy.espn.com/apis/v3/games/ffl/seasons/${season}/segments/0/leagues/${leagueId}?view=mSettings`;
-    const res = await fetch(url, {
-      headers: { "Accept": "application/json" },
-      signal: AbortSignal.timeout(8_000),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      name = data?.settings?.name ?? null;
-      teamCount = data?.settings?.size ?? null;
-    } else if (res.status === 404 || res.status === 401) {
-      return NextResponse.json({ error: "League not found or is private" }, { status: 404 });
-    }
-  } catch {
-    return NextResponse.json({ error: "Could not reach ESPN — check the league ID" }, { status: 502 });
-  }
+  // Save immediately — ESPN blocks server-side validation requests.
+  // The league detail page fetches the real name/data when the user opens it.
+  const name: string | null = providedName ?? null;
+  const teamCount: number | null = null;
 
   const league = await prisma.espnLeague.upsert({
     where: { profileId_leagueId_season: { profileId: profile.id, leagueId, season } },
@@ -67,7 +64,7 @@ export async function DELETE(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const profile = await prisma.profile.findUnique({ where: { clerkId: userId } });
+  const { profile } = await getProfileAndCookie(userId);
   if (!profile) return NextResponse.json({ error: "Profile not found" }, { status: 404 });
 
   const { leagueId, season } = await req.json();

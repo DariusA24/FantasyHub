@@ -1,4 +1,5 @@
 import { SignInButton, SignUpButton } from "@clerk/nextjs";
+import Link from "next/link";
 import React from "react";
 import {
   FiRepeat,
@@ -9,6 +10,7 @@ import {
   FiTrendingUp,
   FiArrowRight,
   FiCheck,
+  FiSearch,
 } from "react-icons/fi";
 
 const FEATURES = [
@@ -17,7 +19,7 @@ const FEATURES = [
     color: "text-amber-500 dark:text-[#F4D06F]",
     bg: "bg-amber-500/10",
     title: "League Hubs",
-    desc: "Private spaces for history, bets, posts, and trophies — tied to your Sleeper season.",
+    desc: "Private spaces for history, bets, posts, and trophies — built to follow your league across seasons.",
   },
   {
     icon: FiTrendingUp,
@@ -53,6 +55,49 @@ const FEATURES = [
     bg: "bg-orange-500/10",
     title: "Power Rankings",
     desc: "Every team's true standing by points and record, updated automatically.",
+  },
+];
+
+const TOOLS = [
+  {
+    href: "/tools/trade-analyzer",
+    icon: FiRepeat,
+    color: "text-sky-500",
+    bg: "bg-sky-500/10",
+    title: "Trade Analyzer",
+    short: "FantasyCalc values + AI breakdown on any deal",
+  },
+  {
+    href: "/tools/matchup-breakdown",
+    icon: FiBarChart2,
+    color: "text-amber-500 dark:text-[#F4D06F]",
+    bg: "bg-amber-500/10 dark:bg-[#F4D06F]/10",
+    title: "Matchup Breakdown",
+    short: "Compare players side by side with stats",
+  },
+  {
+    href: "/tools/waiver-wire",
+    icon: FiZap,
+    color: "text-purple-500",
+    bg: "bg-purple-500/10",
+    title: "Waiver Wire",
+    short: "Best available pickups ranked each week",
+  },
+  {
+    href: "/tools/power-rankings",
+    icon: FiTrendingUp,
+    color: "text-emerald-500",
+    bg: "bg-emerald-500/10",
+    title: "Power Rankings",
+    short: "Every team's true standing by points",
+  },
+  {
+    href: "/tools/scouting",
+    icon: FiSearch,
+    color: "text-rose-500",
+    bg: "bg-rose-500/10",
+    title: "College Scouting",
+    short: "Scout prospects and leave notes before the draft",
   },
 ];
 
@@ -95,7 +140,7 @@ function Guest() {
               </h1>
 
               <p className="text-sm md:text-base text-zinc-500 dark:text-zinc-400 leading-relaxed mb-8">
-                Connect to your Sleeper leagues and turn them into rich, private hubs — trade tools, power rankings, bets, and a history that never resets.
+                Connect your fantasy leagues and turn them into rich, private hubs — trade tools, power rankings, bets, and a history that never resets.
               </p>
 
               <div className="flex flex-wrap items-center gap-3">
@@ -114,48 +159,29 @@ function Guest() {
               <p className="mt-3 text-[11px] text-zinc-400 dark:text-zinc-600">No credit card required</p>
             </div>
 
-            {/* Right — preview card */}
-            <div className="flex-shrink-0 w-full md:w-80">
-              <div className="relative">
-                <div className="absolute -inset-2 rounded-3xl bg-[#F4D06F]/10 blur-2xl" />
-                <div className="relative rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950/70 shadow-sm dark:shadow-[0_18px_45px_rgba(0,0,0,0.75)] backdrop-blur-md overflow-hidden">
-                  {/* card header */}
-                  <div className="px-5 py-4 border-b border-zinc-100 dark:border-zinc-800/60 flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100">Gridiron Greats</p>
-                      <p className="text-[10px] text-zinc-500">12-team · Dynasty · 2026</p>
-                    </div>
-                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/5 px-2 py-0.5 text-[10px] text-emerald-400">
-                      <span className="h-1 w-1 rounded-full bg-emerald-400" />
-                      Live
-                    </span>
-                  </div>
-                  {/* stats rows */}
-                  <div className="px-5 py-4 space-y-3">
-                    {[
-                      { label: "Season Record", value: "9–4", color: "text-emerald-400" },
-                      { label: "Points For", value: "1,842", color: "text-[#F4D06F]" },
-                      { label: "Power Rank", value: "#2", color: "text-sky-400" },
-                      { label: "Active Bets", value: "3 open", color: "text-purple-400" },
-                    ].map((row) => (
-                      <div key={row.label} className="flex items-center justify-between text-xs">
-                        <span className="text-zinc-500 dark:text-zinc-400">{row.label}</span>
-                        <span className={`font-bold ${row.color}`}>{row.value}</span>
+            {/* Right — free tools grid */}
+            <div className="flex-shrink-0 w-full md:w-[340px]">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-3">
+                Free tools · no account needed
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {TOOLS.map((t) => {
+                  const Icon = t.icon;
+                  return (
+                    <Link
+                      key={t.title}
+                      href={t.href}
+                      className="group relative rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950/70 p-4 shadow-sm dark:shadow-[0_8px_25px_rgba(0,0,0,0.5)] backdrop-blur-md transition-all hover:-translate-y-0.5 hover:border-zinc-300 dark:hover:border-zinc-700"
+                    >
+                      <div className={`mb-2.5 inline-flex h-9 w-9 items-center justify-center rounded-xl ${t.bg}`}>
+                        <Icon className={`h-4 w-4 ${t.color}`} />
                       </div>
-                    ))}
-                  </div>
-                  {/* mini members row */}
-                  <div className="px-5 pb-4 pt-1 border-t border-zinc-100 dark:border-zinc-800/60 flex items-center justify-between">
-                    <div className="flex -space-x-1.5">
-                      {["D","K","M","T","J"].map((l) => (
-                        <div key={l} className="h-6 w-6 rounded-full border-2 border-white dark:border-zinc-950 bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-[9px] font-bold text-zinc-500 dark:text-zinc-300">
-                          {l}
-                        </div>
-                      ))}
-                    </div>
-                    <span className="text-[10px] text-zinc-500">12 managers</span>
-                  </div>
-                </div>
+                      <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100 mb-0.5">{t.title}</p>
+                      <p className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-relaxed">{t.short}</p>
+                      <FiArrowRight className="absolute right-3 top-3 h-3 w-3 text-zinc-300 dark:text-zinc-700 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </Link>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -215,8 +241,8 @@ function Guest() {
             </div>
             <div className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
               {[
-                { n: "01", title: "Connect Sleeper", desc: "Link your Sleeper account in one click. All your leagues import instantly." },
-                { n: "02", title: "Create a Hub", desc: "Spin up a private Hub League for any of your Sleeper seasons." },
+                { n: "01", title: "Connect your leagues", desc: "Link your fantasy accounts and all your leagues import instantly — no matter where you play." },
+                { n: "02", title: "Create a Hub", desc: "Spin up a private Hub League for any of your seasons, across any platform." },
                 { n: "03", title: "Track Everything", desc: "Bets, posts, awards, H2H records — persisted season over season." },
               ].map((step) => (
                 <div key={step.n} className="flex items-start gap-4 px-6 py-4">
@@ -249,7 +275,7 @@ function Guest() {
                 "Trophy room & champions",
                 "Head-to-head history",
                 "Manager profiles & awards",
-                "Unlimited Sleeper leagues",
+                "All major platforms supported",
                 "Trade Analyzer",
                 "Power Rankings",
                 "Start / Sit Optimizer",
@@ -279,7 +305,7 @@ function Guest() {
                 Ready to level up your league?
               </h2>
               <p className="text-sm text-zinc-500 dark:text-zinc-400 max-w-md">
-                Connect Sleeper, create a Hub, and get every tool your league has been missing.
+                Connect your leagues, create a Hub, and get every tool your league has been missing.
               </p>
             </div>
             <div className="flex items-center gap-3 shrink-0">

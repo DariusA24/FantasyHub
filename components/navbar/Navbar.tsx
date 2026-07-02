@@ -4,8 +4,9 @@ import Link from 'next/link';
 import { useAuth } from '@clerk/nextjs';
 import { DarkMode } from './DarkMode';
 import LinkDropDown from './LinkDropDown';
-import { FiHome, FiStar, FiHelpCircle, FiLogIn, FiMessageSquare, FiGrid } from 'react-icons/fi';
+import { FiHome, FiStar, FiHelpCircle, FiLogIn, FiGrid } from 'react-icons/fi';
 import ToolsDropdown from './ToolsDropdown';
+import CommunityDropdown from './CommunityDropdown';
 import NavSearch from './NavSearch';
 
 function NavBar() {
@@ -21,9 +22,6 @@ function NavBar() {
             <Link href="/" className="flex items-center gap-2 flex-shrink-0">
               <span className="text-md sm:text-2xl font-extrabold tracking-tight font-[var(--font-display)] bg-gradient-to-r from-amber-600 via-amber-500 to-amber-400 dark:from-amber-400 dark:via-amber-100 dark:to-yellow-50 bg-clip-text text-transparent">
                 FantasyHub
-              </span>
-              <span className="hidden sm:inline-block text-[10px] uppercase tracking-[0.2em] text-zinc-500 dark:text-amber-100/60">
-                Fantasy Drafts, Refined
               </span>
             </Link>
           </div>
@@ -43,15 +41,9 @@ function NavBar() {
                 className="inline-flex items-center gap-1.5 rounded-full px-3 sm:px-4 py-1.5 text-[11px] sm:text-xs font-medium text-zinc-600 dark:text-amber-50/80 hover:text-zinc-900 dark:hover:text-amber-50 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/30 dark:hover:border-amber-500/40 transition-all duration-150"
               >
                 <FiGrid className="h-3.5 w-3.5" />
-                <span className="tracking-[0.18em]">PROFILE</span>
+                <span className="tracking-[0.18em]">MANAGER</span>
               </Link>
-              <Link
-                href="/forum"
-                className="inline-flex items-center gap-1.5 rounded-full px-3 sm:px-4 py-1.5 text-[11px] sm:text-xs font-medium text-zinc-600 dark:text-amber-50/80 hover:text-zinc-900 dark:hover:text-amber-50 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/30 dark:hover:border-amber-500/40 transition-all duration-150"
-              >
-                <FiMessageSquare className="h-3.5 w-3.5" />
-                <span className="tracking-[0.18em]">FORUM</span>
-              </Link>
+              <CommunityDropdown />
               <NavSearch />
               <ToolsDropdown />
               {/* Dark mode + profile */}

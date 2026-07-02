@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { FiChevronDown } from "react-icons/fi";
+import { useRouter } from "next/navigation";
+import { FiArrowLeft, FiChevronDown } from "react-icons/fi";
 
 import type { League, TeamData, SleeperPick } from "./types";
 import { KEY_POSITIONS, POS_TEXT } from "./types";
@@ -181,6 +182,7 @@ function buildTeams(
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function PowerRankingsPage() {
+  const router = useRouter();
   const [isDynasty, setIsDynasty] = useState(true);
   const [numQbs, setNumQbs]       = useState<1 | 2>(1);
   const [ppr, setPpr]             = useState<0 | 0.5 | 1>(1);
@@ -251,6 +253,13 @@ export default function PowerRankingsPage() {
 
         {/* Header */}
         <div className="mb-8">
+          <button
+            onClick={() => router.back()}
+            className="mb-4 inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
+          >
+            <FiArrowLeft className="h-3.5 w-3.5" />
+            Back
+          </button>
           <div className="inline-flex items-center gap-2 rounded-full border border-zinc-200 dark:border-zinc-800/70 bg-zinc-100/80 dark:bg-black/40 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400 mb-3">
             <span className="h-1.5 w-1.5 rounded-full bg-amber-500 dark:bg-[#F4D06F] shadow-[0_0_8px_rgba(244,208,111,0.6)]" />
             Tools

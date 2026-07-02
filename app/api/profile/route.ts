@@ -22,12 +22,22 @@ export async function GET() {
         bio: true,
         sleeperProfileId: true,
         sleeperProfile: true,
+        espnSwid: true,
+        espnS2: true,
+        espnLeagues: {
+          select: { id: true, leagueId: true, season: true, name: true, teamCount: true },
+          orderBy: [{ season: 'desc' }, { createdAt: 'desc' }],
+        },
       },
     });
 
-    console.log("API /api/profile returning profile:", profile);
+    // Strip raw cookie values — only expose a presence boolean
+    const { espnSwid, espnS2, ...safeProfile } = profile ?? {} as any;
+    const profileOut = profile
+      ? { ...safeProfile, hasEspnCredentials: !!(espnSwid && espnS2) }
+      : null;
 
-    return NextResponse.json({ profile }, { status: 200 });
+    return NextResponse.json({ profile: profileOut }, { status: 200 });
   } catch (err) {
     console.error('Error in /api/profile:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

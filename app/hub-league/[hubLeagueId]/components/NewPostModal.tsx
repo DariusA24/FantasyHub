@@ -16,12 +16,12 @@ const TAG_STYLE: Record<BlogPostTag, string> = {
 };
 
 type Props = {
-  hubLeagueId: string;
+  apiBase: string;
   onClose: () => void;
   onCreated: () => void;
 };
 
-export function NewPostModal({ hubLeagueId, onClose, onCreated }: Props) {
+export function NewPostModal({ apiBase, onClose, onCreated }: Props) {
   const [tag, setTag] = useState<BlogPostTag>("Recap");
   const [weekLabel, setWeekLabel] = useState("Week 1");
   const [title, setTitle] = useState("");
@@ -39,7 +39,7 @@ export function NewPostModal({ hubLeagueId, onClose, onCreated }: Props) {
     setError(null);
 
     try {
-      const res = await fetch(`/api/hub-leagues/${hubLeagueId}/posts`, {
+      const res = await fetch(`${apiBase}/posts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tag, weekLabel, title, body }),

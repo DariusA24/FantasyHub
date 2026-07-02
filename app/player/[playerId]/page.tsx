@@ -43,6 +43,15 @@ type NFLProfile = {
 
 type SeasonStats = Record<string, number>;
 
+type NewsItem = {
+  id: number;
+  headline: string;
+  description: string | null;
+  published: string;
+  image: string | null;
+  url: string | null;
+};
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const POS_COLOR: Record<string, string> = {
@@ -162,30 +171,41 @@ export default function PlayerPage() {
   const [player, setPlayer] = useState<SleeperPlayer | null>(null);
   const [profile, setProfile] = useState<NFLProfile | null>(null);
   const [allStats, setAllStats] = useState<Record<number, SeasonStats>>({});
-  const [allStatsLoading, setAllStatsLoading] = useState(false);
+  const [allStatsLoading, setAllStatsLoading] = useState(true);
+  const [news, setNews] = useState<NewsItem[]>([]);
+  const [newsLoading, setNewsLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [imgErr, setImgErr] = useState(false);
 
-  // Load player + profile in parallel
+  // Load player + profile + news in parallel
   useEffect(() => {
     if (!playerId) return;
+    setNewsLoading(true);
     Promise.all([
       fetch(`/api/sleeper/players/${playerId}`).then((r) => {
         if (r.status === 404) { setNotFound(true); return null; }
         return r.json();
       }),
       fetch(`/api/scouting/nfl-profile?sleeperId=${playerId}`).then((r) => r.json()).catch(() => null),
-    ]).then(([playerData, profileData]) => {
+      fetch(`/api/players/${playerId}/news`).then((r) => r.json()).catch(() => []),
+    ]).then(([playerData, profileData, newsData]) => {
       if (playerData) setPlayer(playerData);
       if (profileData && !profileData.error) setProfile(profileData);
-    });
+      setNews(Array.isArray(newsData) ? newsData : []);
+    }).finally(() => setNewsLoading(false));
   }, [playerId]);
 
+  // Prefer scouting profile classYear; fall back to years_exp from Sleeper player data
+  const rawYearsExp = (player?.rawJson as Record<string, unknown> | null)?.years_exp;
+  const yearsExp = typeof rawYearsExp === "number" ? rawYearsExp : null;
+  const classYear =
+    profile?.classYear ?? (yearsExp !== null ? 2026 - yearsExp : null);
+
   // Fetch all available seasons in parallel once we know classYear
-  const classYear = profile?.classYear ?? null;
   useEffect(() => {
     if (!playerId) return;
+    let cancelled = false;
     const earliest = Math.max(classYear ?? 2022, 2015);
     const years: number[] = [];
     for (let y = earliest; y <= 2025; y++) years.push(y);
@@ -201,11 +221,13 @@ export default function PlayerPage() {
       )
     )
       .then((results) => {
+        if (cancelled) return;
         const map: Record<number, SeasonStats> = {};
         for (const { year, stats } of results) map[year] = stats;
         setAllStats(map);
       })
-      .finally(() => setAllStatsLoading(false));
+      .finally(() => { if (!cancelled) setAllStatsLoading(false); });
+    return () => { cancelled = true; };
   }, [playerId, classYear]);
 
   if (notFound) {
@@ -400,13 +422,12 @@ export default function PlayerPage() {
         )}
 
         {/* ── Season Stats (multi-year table) ─────────────────────────────── */}
-        {statDefs.length > 0 && (
-          <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/30 overflow-hidden mb-4">
-            <div className="px-5 py-3.5 border-b border-zinc-100 dark:border-zinc-800/40">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-600">Career Stats</p>
-            </div>
+        <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/30 overflow-hidden mb-4">
+          <div className="px-5 py-3.5 border-b border-zinc-100 dark:border-zinc-800/40">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-600">Career Stats</p>
+          </div>
 
-            {allStatsLoading ? (
+          {allStatsLoading || !player ? (
               <div className="flex flex-col">
                 {[2025, 2024, 2023].map((y) => (
                   <div key={y} className="flex items-center gap-4 px-5 py-3.5 border-b border-zinc-100 dark:border-zinc-800/30 animate-pulse">
@@ -508,8 +529,71 @@ export default function PlayerPage() {
                 </table>
               </div>
             )}
+        </div>
+
+        {/* ── News ─────────────────────────────────────────────────────────── */}
+        <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/30 overflow-hidden mb-4">
+          <div className="px-5 py-3.5 border-b border-zinc-100 dark:border-zinc-800/40 flex items-center justify-between">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-600">Latest News</p>
+            <p className="text-[10px] text-zinc-400 dark:text-zinc-600">via ESPN</p>
           </div>
-        )}
+
+          {newsLoading ? (
+            <div className="divide-y divide-zinc-100 dark:divide-zinc-800/30">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="flex gap-3 px-5 py-4 animate-pulse">
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3.5 w-4/5 rounded bg-zinc-200 dark:bg-zinc-800/50" />
+                    <div className="h-2.5 w-full rounded bg-zinc-200 dark:bg-zinc-800/30" />
+                    <div className="h-2.5 w-2/3 rounded bg-zinc-200 dark:bg-zinc-800/30" />
+                  </div>
+                  <div className="h-16 w-24 rounded-xl bg-zinc-200 dark:bg-zinc-800/50 shrink-0" />
+                </div>
+              ))}
+            </div>
+          ) : news.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 gap-2">
+              <MdOutlineSportsFootball className="h-7 w-7 text-zinc-300 dark:text-zinc-700" />
+              <p className="text-[12px] text-zinc-400 dark:text-zinc-600">No recent news found</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-zinc-100 dark:divide-zinc-800/30">
+              {news.map((item) => (
+                <a
+                  key={item.id}
+                  href={item.url ?? "#"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex gap-3 px-5 py-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/20 transition-colors group"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-semibold text-zinc-900 dark:text-zinc-100 leading-snug group-hover:text-zinc-950 dark:group-hover:text-white transition-colors line-clamp-2">
+                      {item.headline}
+                    </p>
+                    {item.description && item.description !== item.headline && (
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-500 mt-1 line-clamp-2">
+                        {item.description}
+                      </p>
+                    )}
+                    <p className="text-[10px] text-zinc-400 dark:text-zinc-600 mt-1.5">
+                      {new Date(item.published).toLocaleDateString("en-US", {
+                        month: "short", day: "numeric", year: "numeric",
+                      })}
+                    </p>
+                  </div>
+                  {item.image && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={item.image}
+                      alt=""
+                      className="h-16 w-24 rounded-xl object-cover shrink-0 bg-zinc-100 dark:bg-zinc-800/50"
+                    />
+                  )}
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* ── Bio ──────────────────────────────────────────────────────────── */}
         {profile?.bio && (

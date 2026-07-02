@@ -39,10 +39,11 @@ const TAG_STYLE: Record<BlogPostTag, string> = {
 };
 
 type Props = {
-  hubLeagueId: string;
+  /** API prefix that owns the posts, e.g. `/api/hub-leagues/{id}` or `/api/espn/league/{id}` */
+  apiBase: string;
 };
 
-export function LeagueBlog({ hubLeagueId }: Props) {
+export function LeagueBlog({ apiBase }: Props) {
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [showNewPost, setShowNewPost] = useState(false);
@@ -50,7 +51,7 @@ export function LeagueBlog({ hubLeagueId }: Props) {
 
   async function fetchPosts() {
     try {
-      const res = await fetch(`/api/hub-leagues/${hubLeagueId}/posts`);
+      const res = await fetch(`${apiBase}/posts`);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.posts)) setPosts(data.posts);
@@ -62,7 +63,7 @@ export function LeagueBlog({ hubLeagueId }: Props) {
 
   useEffect(() => {
     fetchPosts();
-  }, [hubLeagueId]);
+  }, [apiBase]);
 
   return (
     <>
@@ -184,7 +185,7 @@ export function LeagueBlog({ hubLeagueId }: Props) {
 
       {showNewPost && (
         <NewPostModal
-          hubLeagueId={hubLeagueId}
+          apiBase={apiBase}
           onClose={() => setShowNewPost(false)}
           onCreated={() => fetchPosts()}
         />
@@ -192,7 +193,7 @@ export function LeagueBlog({ hubLeagueId }: Props) {
 
       {viewPostId && (
         <PostViewModal
-          hubLeagueId={hubLeagueId}
+          apiBase={apiBase}
           postId={viewPostId}
           onClose={() => setViewPostId(null)}
           onDeleted={() => setPosts((prev) => prev.filter((p) => p.id !== viewPostId))}

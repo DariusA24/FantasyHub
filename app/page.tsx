@@ -11,8 +11,7 @@ import {
   getSleeperUserRecordForLeague,
 } from "../utils/sleeperActions";
 import { sleeperProfile } from "@prisma/client";
-import SleeperProfileCard from "@/components/ui/SleeperProfileCard";
-import { LeagueGrid } from "@/components/ui/LeagueGrid";
+import { LeagueCard } from "@/components/ui/LeagueCard";
 import StatsRow from "@/components/ui/StatRow";
 import Image from "next/image";
 import { LeagueHubModal } from "@/components/ui/LeagueHubModal";
@@ -29,6 +28,7 @@ type UserProfile = {
   username?: string;
   profileImage?: string;
   sleeperProfile?: sleeperProfile | null;
+  hasEspnCredentials?: boolean;
 };
 
 type SleeperLeagues = {
@@ -38,6 +38,8 @@ type SleeperLeagues = {
   sport: string;
   avatar: string | null;
   previous_league_id?: string | null;
+  total_rosters?: number;
+  status?: string;
 };
 
 function HomePage() {
@@ -60,6 +62,8 @@ function HomePage() {
   const [isLeaguesLoading, setIsLeaguesLoading] = useState(false);
   const [recentHubLeague, setRecentHubLeague] = useState<{ id: string; name: string } | null>(null);
   const [hubRank, setHubRank] = useState<{ tier: string; score: number | null; seasons: number } | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_espnLeagues, _setEspnLeagues] = useState<{ id: string; leagueId: string; season: string; name: string | null; teamCount: number | null }[]>([]);
 
   const loadProfile = useCallback(async () => {
     try {
@@ -109,6 +113,12 @@ function HomePage() {
       const hasSleeperLinked =
         fetchedProfile.sleeperProfileId !== null &&
         fetchedProfile.sleeperProfileId !== undefined;
+
+      // ESPN leagues hidden for MVP — fetch skipped
+      // fetch('/api/espn/leagues')
+      //   .then((r) => r.ok ? r.json() : null)
+      //   .then((data) => { if (data?.leagues) setEspnLeagues(data.leagues); })
+      //   .catch(() => {});
 
       if (!hasSleeperLinked) {
         console.log("No Sleeper linked; opening SleeperSearchModal");
@@ -354,17 +364,70 @@ function HomePage() {
             </div>
           </div>
 
-          {hasSleeperLinked && (
-            <div className="w-full max-w-xs self-stretch rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950/70 p-4 shadow-sm dark:shadow-[0_18px_45px_rgba(0,0,0,0.75)] backdrop-blur-md">
-              <div className="mb-2 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
-                <span className="font-medium">Linked Sleeper Account</span>
-                <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
-                  Active
+          <div className="w-full max-w-xs self-stretch rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950/70 p-4 shadow-sm dark:shadow-[0_18px_45px_rgba(0,0,0,0.75)] backdrop-blur-md">
+            <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
+              Platform Connections
+            </p>
+            <ul className="space-y-2.5">
+
+              {/* Sleeper */}
+              <li className="flex items-center gap-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-[10px] font-black text-emerald-600 dark:text-emerald-400">
+                  SLP
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">Sleeper</p>
+                  {hasSleeperLinked && sleeperUsername ? (
+                    <p className="text-[11px] text-zinc-500 truncate">@{sleeperUsername}</p>
+                  ) : (
+                    <p className="text-[11px] text-zinc-400 dark:text-zinc-600 italic">Not linked</p>
+                  )}
+                </div>
+                {hasSleeperLinked && sleeperUsername ? (
+                  <span className="shrink-0 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                    Active
+                  </span>
+                ) : (
+                  <span className="shrink-0 rounded-full bg-zinc-100 dark:bg-zinc-800/60 px-2 py-0.5 text-[10px] text-zinc-400 dark:text-zinc-600">
+                    ——
+                  </span>
+                )}
+              </li>
+
+              <li className="h-px bg-zinc-100 dark:bg-zinc-800/60" />
+
+              {/* ESPN — coming soon */}
+              <li className="flex items-center gap-3 opacity-50">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-500/10 text-[10px] font-black text-red-600 dark:text-red-400">
+                  ESPN
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">ESPN</p>
+                  <p className="text-[11px] text-zinc-400 dark:text-zinc-600">Coming soon</p>
+                </div>
+                <span className="shrink-0 rounded-full bg-zinc-100 dark:bg-zinc-800/60 px-2 py-0.5 text-[10px] text-zinc-400 dark:text-zinc-600">
+                  ——
                 </span>
-              </div>
-              <SleeperProfileCard username={sleeperUsername} />
-            </div>
-          )}
+              </li>
+
+              <li className="h-px bg-zinc-100 dark:bg-zinc-800/60" />
+
+              {/* Yahoo — coming soon */}
+              <li className="flex items-center gap-3 opacity-50">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-purple-500/10 text-[10px] font-black text-purple-600 dark:text-purple-400">
+                  YHO
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">Yahoo</p>
+                  <p className="text-[11px] text-zinc-400 dark:text-zinc-600">Coming soon</p>
+                </div>
+                <span className="shrink-0 rounded-full bg-zinc-100 dark:bg-zinc-800/60 px-2 py-0.5 text-[10px] text-zinc-400 dark:text-zinc-600">
+                  ——
+                </span>
+              </li>
+
+            </ul>
+          </div>
         </div>
 
         {/* Recent hub league */}
@@ -410,7 +473,7 @@ function HomePage() {
                   Your Leagues
                 </h2>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 md:text-sm">
-                  All Sleeper leagues linked to your account for this season.
+                  Your Sleeper leagues.
                 </p>
               </div>
             </div>
@@ -444,21 +507,37 @@ function HomePage() {
         </div>
 
         {/* Leagues container */}
-        <div className="mt-1 space-y-4 rounded-2xl border border-zinc-200 dark:border-[#1d212b] bg-white dark:bg-[#05060a] p-6 shadow-sm dark:shadow-[0_22px_60px_rgba(0,0,0,0.85)]">
+        <div className="mt-1 rounded-2xl border border-zinc-200 dark:border-[#1d212b] bg-white dark:bg-[#05060a] p-6 shadow-sm dark:shadow-[0_22px_60px_rgba(0,0,0,0.85)]">
           {isLeaguesLoading ? (
             <div className="flex items-center gap-3 text-sm text-zinc-500 dark:text-zinc-400">
               <span className="h-4 w-4 rounded-full border-2 border-zinc-300 dark:border-zinc-700 border-t-amber-500 dark:border-t-[#F4D06F] animate-spin" />
-              <span>Loading leagues for {selectedSeason}…</span>
+              <span>Loading leagues…</span>
             </div>
-          ) : leaguesJoined && leaguesJoined.length > 0 ? (
-            <LeagueGrid
-              leagues={leaguesJoined}
-              leagueRecords={leagueRecords}
-              onLeagueClick={(league) => {
-                setSelectedLeague(league);
-                setIsLeagueModalOpen(true);
-              }}
-            />
+          ) : (leaguesJoined && leaguesJoined.length > 0) ? (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {(leaguesJoined ?? []).map((league) => {
+                const record = leagueRecords[league.league_id];
+                return (
+                  <LeagueCard
+                    key={league.league_id}
+                    league_id={league.league_id}
+                    name={league.name}
+                    season={league.season}
+                    sport={league.sport}
+                    photo={league.avatar}
+                    status={league.status}
+                    total_rosters={league.total_rosters}
+                    record={record ? `${record.wins}-${record.losses}-${record.ties}` : undefined}
+                    platform="sleeper"
+                    onClick={() => {
+                      setSelectedLeague(league);
+                      setIsLeagueModalOpen(true);
+                    }}
+                  />
+                );
+              })}
+              {/* ESPN league cards — hidden for MVP */}
+            </div>
           ) : (
             <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-zinc-300 dark:border-zinc-700/70 bg-zinc-50 dark:bg-zinc-950/60 px-4 py-8 text-center">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-100 dark:bg-zinc-900/80 ring-1 ring-zinc-200 dark:ring-zinc-700/80">
@@ -469,21 +548,8 @@ function HomePage() {
                   No leagues found for {selectedSeason}
                 </h3>
                 <p className="mt-1 max-w-md text-xs text-zinc-500 dark:text-zinc-400 md:text-sm">
-                  Join or create a league on Sleeper, then refresh this page to
-                  see it appear here. Make sure your Sleeper account is linked
-                  to FantasyHub.
+                  Join or create a league on Sleeper to get started.
                 </p>
-              </div>
-              <div className="mt-2 flex flex-wrap items-center justify-center gap-2 text-[11px] text-zinc-500 dark:text-zinc-400">
-                <span className="rounded-full border border-zinc-200 dark:border-zinc-700/80 bg-zinc-100 dark:bg-zinc-900/70 px-2 py-1">
-                  Seasonal overview
-                </span>
-                <span className="rounded-full border border-zinc-200 dark:border-zinc-700/80 bg-zinc-100 dark:bg-zinc-900/70 px-2 py-1">
-                  Cross-league records
-                </span>
-                <span className="rounded-full border border-zinc-200 dark:border-zinc-700/80 bg-zinc-100 dark:bg-zinc-900/70 px-2 py-1">
-                  Win rate tracking
-                </span>
               </div>
             </div>
           )}
