@@ -4,10 +4,10 @@ import StatCard from "./StatCard";
 type StatsRowProps = {
     leaguesJoinedCount?: number;
     winRate?: number; // percentage, 0–100
-    fantasyHubRank?: string;
+    leagueShelfRank?: string;
 };
 
-export default function StatsRow({leaguesJoinedCount, winRate = 0, fantasyHubRank}: StatsRowProps) {
+export default function StatsRow({leaguesJoinedCount, winRate = 0, leagueShelfRank}: StatsRowProps) {
   const formattedWinRate = `${winRate.toFixed(1)}%`;
 
   return (
@@ -25,8 +25,8 @@ export default function StatsRow({leaguesJoinedCount, winRate = 0, fantasyHubRan
     />
     <StatCard
       icon={<Award size={18} className="text-yellow-400" />}
-      label="FantasyHub Rank"
-      value={fantasyHubRank ?? "N/A"}
+      label="LeagueShelf Rank"
+      value={leagueShelfRank ?? "N/A"}
     />
   </div>
 </section>

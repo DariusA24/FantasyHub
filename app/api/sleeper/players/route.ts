@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     console.warn("[sleeper/players] DB empty, falling back to Sleeper API. Run /api/sleeper/players/refresh to seed.");
 
     const res = await fetch("https://api.sleeper.app/v1/players/nfl", {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; FantasyHub/1.0)" },
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; LeagueShelf/1.0)" },
       next: { revalidate: 86400 },
     });
 

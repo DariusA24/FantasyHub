@@ -11,7 +11,7 @@ async function fetchWithRetry(url: string, attempts = 3): Promise<Response> {
   for (let i = 0; i < attempts; i++) {
     try {
       const res = await fetch(url, {
-        headers: { "User-Agent": "Mozilla/5.0 (compatible; FantasyHub/1.0)" },
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; LeagueShelf/1.0)" },
         signal: AbortSignal.timeout(10_000),
       });
       return res;

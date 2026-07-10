@@ -17,7 +17,7 @@ async function fetchFC(): Promise<any[]> {
   if (fcCache && now < fcCache.expiry) return fcCache.data;
   const res = await fetch(
     "https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=1&ppr=1",
-    { headers: { "User-Agent": "FantasyHub/1.0" }, signal: AbortSignal.timeout(10_000) }
+    { headers: { "User-Agent": "LeagueShelf/1.0" }, signal: AbortSignal.timeout(10_000) }
   );
   if (!res.ok) throw new Error(`FantasyCalc: ${res.status}`);
   const data = await res.json();

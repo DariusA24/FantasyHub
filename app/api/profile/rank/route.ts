@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/utils/actions";
 import { prisma } from "@/utils/db";
-import { computeFantasyHubRank } from "@/utils/computeFantasyHubRank";
+import { computeLeagueShelfRank } from "@/utils/computeLeagueShelfRank";
 
 // GET /api/profile/rank?sleeperUserId=XXX
 // Returns tier, score, and seasons for the given Sleeper user.
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "sleeperUserId is required" }, { status: 400 });
     }
 
-    const rank = await computeFantasyHubRank(sleeperUserId);
+    const rank = await computeLeagueShelfRank(sleeperUserId);
     return NextResponse.json(rank);
   } catch (e: any) {
     console.error("[profile/rank GET]", e);

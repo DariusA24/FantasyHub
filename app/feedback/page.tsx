@@ -47,7 +47,7 @@ export default function FeedbackPage() {
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-8">
             {type === 'bug'
               ? "We'll look into the issue and get it fixed."
-              : "We'll review your suggestion — great ideas make FantasyHub better."}
+              : "We'll review your suggestion — great ideas make LeagueShelf better."}
           </p>
           <button
             onClick={() => router.back()}

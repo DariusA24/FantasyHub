@@ -13,7 +13,7 @@ async function fetchFCValues(): Promise<any[]> {
   const res = await fetch(
     "https://api.fantasycalc.com/values/current?isDynasty=true&numQbs=1&ppr=1",
     {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; FantasyHub/1.0)" },
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; LeagueShelf/1.0)" },
       signal: AbortSignal.timeout(10_000),
     }
   );

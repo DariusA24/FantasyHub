@@ -15,7 +15,7 @@ async function fetchDynastyValues(): Promise<any[]> {
   if (cache && now < cacheExpiry) return cache;
 
   const res = await fetch(FANTASYCALC_URL, {
-    headers: { "User-Agent": "Mozilla/5.0 (compatible; FantasyHub/1.0)" },
+    headers: { "User-Agent": "Mozilla/5.0 (compatible; LeagueShelf/1.0)" },
   });
 
   if (!res.ok) {

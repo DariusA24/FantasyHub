@@ -9,8 +9,8 @@ import { ClerkProvider } from '@clerk/nextjs'
 const inter = Inter({subsets: ['latin']}); 
 
 export const metadata: Metadata = {
-  title: "FantasyHub",
-  description: "FantasyHub, make fantasy sports better.",
+  title: "LeagueShelf",
+  description: "LeagueShelf, make fantasy sports better.",
 };
 
 export default function RootLayout({

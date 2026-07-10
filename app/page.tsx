@@ -136,7 +136,7 @@ function HomePage() {
         fetchedProfile.sleeperProfileId
       );
 
-      // Fetch FantasyHub rank (cross-league, non-blocking)
+      // Fetch LeagueShelf rank (cross-league, non-blocking)
       fetch(`/api/profile/rank?sleeperUserId=${fetchedProfile.sleeperProfileId}`)
         .then((r) => r.ok ? r.json() : null)
         .then((data) => { if (data?.tier) setHubRank(data); })
@@ -457,7 +457,7 @@ function HomePage() {
           <StatsRow
             leaguesJoinedCount={leaguesJoinedCount}
             winRate={winRate}
-            fantasyHubRank={hubRank && hubRank.tier !== "Unranked" ? hubRank.tier : undefined}
+            leagueShelfRank={hubRank && hubRank.tier !== "Unranked" ? hubRank.tier : undefined}
           />
         </div>
 

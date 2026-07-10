@@ -741,7 +741,7 @@ export default function MyFranchisePage() {
         )}
         <p className="mt-4 text-lg font-bold hub-text-primary">{displayName}</p>
 
-        {/* FantasyHub Rank badge */}
+        {/* LeagueShelf Rank badge */}
         {hubRank && hubRank.tier !== "Unranked" && rankStyle && (
           <div className={`mt-2 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 ${rankStyle.bg} ${rankStyle.border}`}>
             <span className={`text-[11px] font-bold uppercase tracking-widest ${rankStyle.text}`}>{hubRank.tier}</span>
@@ -791,7 +791,7 @@ export default function MyFranchisePage() {
       {/* ─── No Hub account notice ───────────────────── */}
       {!hasHubProfile && isViewingOther && (
         <div className="mb-6 rounded-xl border border-zinc-700/60 bg-zinc-800/40 px-4 py-3 text-center">
-          <p className="text-xs text-zinc-400">This manager hasn't joined FantasyHub yet.</p>
+          <p className="text-xs text-zinc-400">This manager hasn't joined LeagueShelf yet.</p>
           <p className="text-[11px] text-zinc-600 mt-0.5">Sleeper stats are still available below.</p>
         </div>
       )}
