@@ -46,7 +46,7 @@ export default function CreateProfilePage() {
             Set Up Your Profile
           </h1>
           <p className="mt-3 text-base text-zinc-500 dark:text-zinc-400">
-            Create your FantasyHub identity to track leagues, wins, and more.
+            Create your LeagueShelf identity to track leagues, wins, and more.
           </p>
         </div>
 

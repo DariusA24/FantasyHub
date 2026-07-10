@@ -122,22 +122,20 @@ export function LeagueHubModal({ league, isOpen, onClose }: LeagueHubModalProps)
 
           {/* ── Public League ─────────────────────── */}
           <div className="rounded-xl border border-zinc-200 dark:border-zinc-700/60 bg-zinc-50 dark:bg-zinc-900/40 p-4">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-1.5">
-                <FiGlobe className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500" />
-                <span className="text-xs font-semibold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">Public League</span>
-              </div>
-              <button
-                onClick={() => { onClose(); router.push(`/league/${league.league_id}`); }}
-                className="inline-flex items-center gap-1 text-[11px] text-amber-600 dark:text-[#F4D06F] hover:underline"
-              >
-                View standings
-                <FiExternalLink className="h-3 w-3" />
-              </button>
+            <div className="flex items-center gap-1.5 mb-2">
+              <FiGlobe className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">Public League</span>
             </div>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-3">
               Standings, records, and matchup history sourced directly from Sleeper. Visible to anyone.
             </p>
+            <button
+              onClick={() => { onClose(); router.push(`/league/${league.league_id}`); }}
+              className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
+            >
+              <FiExternalLink className="h-3.5 w-3.5" />
+              Open Public League
+            </button>
           </div>
 
           {/* ── Divider ───────────────────────────── */}

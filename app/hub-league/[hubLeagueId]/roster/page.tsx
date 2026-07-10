@@ -116,16 +116,51 @@ export default function LeaguePage() {
     const fetchLeagueData = async () => {
       if (!isLoaded) return;
 
-      if (!isSignedIn || !user) {
-        setError("You must be signed in to view this league.");
+      const hubLeagueId = params?.hubLeagueId;
+      if (!hubLeagueId || typeof hubLeagueId !== "string") {
+        setError("Invalid hub league id.");
         setLoading(false);
         return;
       }
 
-      // hubLeagueId comes from the dynamic route segment [hubLeagueId]
-      const hubLeagueId = params?.hubLeagueId;
-      if (!hubLeagueId || typeof hubLeagueId !== "string") {
-        setError("Invalid hub league id.");
+      // Demo mode: bypass auth, load from public mock endpoints
+      if (hubLeagueId === "demo") {
+        setLoading(true);
+        setError(null);
+        try {
+          const [rostersRes, leagueRes, usersRes] = await Promise.all([
+            fetch("/api/sleeper/rosters/demo"),
+            fetch("/api/sleeper/league/demo"),
+            fetch("/api/sleeper/league/demo/users"),
+          ]);
+          const [rosters, leagueData, usersData] = await Promise.all([
+            rostersRes.json(),
+            leagueRes.json(),
+            usersRes.json(),
+          ]);
+          if (leagueData) setLeagueSettings(leagueData);
+          if (Array.isArray(usersData)) setLeagueUsers(usersData);
+          if (Array.isArray(rosters) && rosters.length > 0) {
+            setAllRosters(rosters);
+            const myR = rosters.find((r: SleeperRoster) => r.owner_id === "demo-2") ?? rosters[0];
+            setMyRoster(myR);
+            setViewingRosterId(myR.roster_id);
+            const allPlayerIds = Array.from(new Set(rosters.flatMap((r: SleeperRoster) => r.players ?? [])));
+            if (allPlayerIds.length > 0) {
+              const playersRes = await fetch(`/api/sleeper/players?ids=${encodeURIComponent(allPlayerIds.join(","))}`);
+              if (playersRes.ok) setPlayer(await playersRes.json());
+            }
+          }
+        } catch (e) {
+          console.error("[Demo] Roster load error:", e);
+        } finally {
+          setLoading(false);
+        }
+        return;
+      }
+
+      if (!isSignedIn || !user) {
+        setError("You must be signed in to view this league.");
         setLoading(false);
         return;
       }

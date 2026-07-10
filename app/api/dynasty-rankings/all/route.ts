@@ -13,7 +13,7 @@ async function fetchValues(isDynasty: boolean, numQbs: 1 | 2, ppr: 0 | 0.5 | 1):
 
   const url = `https://api.fantasycalc.com/values/current?isDynasty=${isDynasty}&numQbs=${numQbs}&ppr=${ppr}`;
   const res = await fetch(url, {
-    headers: { "User-Agent": "Mozilla/5.0 (compatible; FantasyHub/1.0)" },
+    headers: { "User-Agent": "Mozilla/5.0 (compatible; LeagueShelf/1.0)" },
   });
 
   if (!res.ok) throw new Error(`FantasyCalc API error: ${res.status} ${res.statusText}`);

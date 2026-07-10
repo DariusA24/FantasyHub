@@ -19,7 +19,7 @@ export const MIN_SEASONS = 2;
 //   no award   → rank-percentile: 10 + 55 * (1 - (rank-1)/(total-1))
 //                rank 1/10 → 65, rank 5/10 → 37, rank 10/10 → 10
 
-export async function computeFantasyHubRank(sleeperUserId: string): Promise<{
+export async function computeLeagueShelfRank(sleeperUserId: string): Promise<{
   tier: RankTierName;
   score: number | null;
   seasons: number;

@@ -11,6 +11,7 @@ import {
   FiArrowRight,
   FiCheck,
   FiSearch,
+  FiPlay,
 } from "react-icons/fi";
 
 const FEATURES = [
@@ -131,7 +132,7 @@ function Guest() {
 
               <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight leading-[1.08] mb-5">
                 <span className="bg-gradient-to-r from-[#F4D06F] via-[#f9f0c2] to-[#F4D06F] bg-clip-text text-transparent">
-                  FantasyHub
+                  LeagueShelf
                 </span>
                 <br />
                 <span className="text-zinc-900 dark:text-zinc-50">
@@ -150,11 +151,13 @@ function Guest() {
                     <FiArrowRight className="h-4 w-4" />
                   </button>
                 </SignUpButton>
-                <SignInButton>
-                  <button className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white dark:border-zinc-700/80 dark:bg-zinc-900/60 px-5 py-3 text-sm font-medium text-zinc-700 dark:text-zinc-300 transition hover:border-zinc-300 dark:hover:border-zinc-600">
-                    Sign in
-                  </button>
-                </SignInButton>
+                <Link
+                  href="/hub-league/demo"
+                  className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white dark:border-zinc-700/80 dark:bg-zinc-900/60 px-5 py-3 text-sm font-medium text-zinc-700 dark:text-zinc-300 transition hover:border-zinc-300 dark:hover:border-zinc-600"
+                >
+                  <FiPlay className="h-3.5 w-3.5" />
+                  Try demo
+                </Link>
               </div>
               <p className="mt-3 text-[11px] text-zinc-400 dark:text-zinc-600">No credit card required</p>
             </div>

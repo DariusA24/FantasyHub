@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useAuth } from '@clerk/nextjs';
 import { DarkMode } from './DarkMode';
 import LinkDropDown from './LinkDropDown';
-import { FiHome, FiStar, FiHelpCircle, FiLogIn, FiGrid } from 'react-icons/fi';
+import { FiHome, FiLogIn, FiGrid, FiPlay } from 'react-icons/fi';
 import ToolsDropdown from './ToolsDropdown';
 import CommunityDropdown from './CommunityDropdown';
 import NavSearch from './NavSearch';
@@ -21,7 +21,7 @@ function NavBar() {
           <div className="flex items-center gap-3">
             <Link href="/" className="flex items-center gap-2 flex-shrink-0">
               <span className="text-md sm:text-2xl font-extrabold tracking-tight font-[var(--font-display)] bg-gradient-to-r from-amber-600 via-amber-500 to-amber-400 dark:from-amber-400 dark:via-amber-100 dark:to-yellow-50 bg-clip-text text-transparent">
-                FantasyHub
+                LeagueShelf
               </span>
             </Link>
           </div>
@@ -62,21 +62,15 @@ function NavBar() {
                 <span className="tracking-[0.18em]">HOME</span>
               </Link>
               <Link
-                href="/featured"
+                href="/hub-league/demo"
                 className="hidden sm:inline-flex items-center gap-1.5 rounded-full px-3 sm:px-4 py-1.5 text-[11px] sm:text-xs font-medium text-zinc-600 dark:text-amber-50/80 hover:text-zinc-900 dark:hover:text-amber-50 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/30 dark:hover:border-amber-500/40 transition-all duration-150"
               >
-                <FiStar className="h-3.5 w-3.5" />
-                <span className="tracking-[0.18em]">FEATURED</span>
+                <FiPlay className="h-3.5 w-3.5" />
+                <span className="tracking-[0.18em]">DEMO</span>
               </Link>
+
               <Link
-                href="/works"
-                className="hidden md:inline-flex items-center gap-1.5 rounded-full px-3 sm:px-4 py-1.5 text-[11px] sm:text-xs font-medium text-zinc-600 dark:text-amber-50/80 hover:text-zinc-900 dark:hover:text-amber-50 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/30 dark:hover:border-amber-500/40 transition-all duration-150"
-              >
-                <FiHelpCircle className="h-3.5 w-3.5" />
-                <span className="tracking-[0.18em]">HOW IT WORKS</span>
-              </Link>
-              <Link
-                href="/login"
+                href="/sign-in"
                 className="inline-flex items-center gap-1.5 rounded-full px-3 sm:px-4 py-1.5 text-[11px] sm:text-xs font-semibold tracking-[0.18em] text-neutral-950 bg-amber-400 hover:bg-amber-300 active:bg-amber-500 shadow-md shadow-amber-500/30 transition-all duration-150"
               >
                 <FiLogIn className="h-3.5 w-3.5" />
