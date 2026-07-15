@@ -2,18 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-type RouteContext = { params: Promise<{ leagueId: string }> | { leagueId: string } };
+type RouteContext = { params: Promise<{ leagueId: string }> };
 
-async function resolveParams(ctx: RouteContext) {
-  return "then" in (ctx.params as any)
-    ? await (ctx.params as Promise<{ leagueId: string }>)
-    : (ctx.params as { leagueId: string });
-}
 
 // GET /api/sleeper/league/[leagueId]/picks
 // Returns full pick ownership per roster: { [rosterId]: [{season, round, originalRosterId}] }
 export async function GET(_req: NextRequest, ctx: RouteContext) {
-  const { leagueId } = await resolveParams(ctx);
+  const { leagueId } = await ctx.params;
 
   try {
     const [leagueRes, rostersRes, tradedPicksRes] = await Promise.all([

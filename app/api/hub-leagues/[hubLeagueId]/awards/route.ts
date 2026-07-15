@@ -1,20 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/utils/db";
 
-type RouteContext = { params: Promise<{ hubLeagueId: string }> | { hubLeagueId: string } };
+type RouteContext = { params: Promise<{ hubLeagueId: string }> };
 
-async function resolveParams(ctx: RouteContext) {
-  return "then" in (ctx.params as any)
-    ? await (ctx.params as Promise<{ hubLeagueId: string }>)
-    : (ctx.params as { hubLeagueId: string });
-}
 
 // GET /api/hub-leagues/[hubLeagueId]/awards
 // Optional query params: ?season=2024, ?profileId=123, ?sleeperUserId=XXX
 // Public read — no auth required.
 export async function GET(req: NextRequest, ctx: RouteContext) {
   try {
-    const { hubLeagueId } = await resolveParams(ctx);
+    const { hubLeagueId } = await ctx.params;
 
     const { searchParams } = new URL(req.url);
     const season = searchParams.get("season") ?? undefined;

@@ -2,13 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/utils/actions";
 import { prisma } from "@/utils/db";
 
-type RouteContext = { params: Promise<{ hubLeagueId: string }> | { hubLeagueId: string } };
+type RouteContext = { params: Promise<{ hubLeagueId: string }> };
 
-async function resolveParams(context: RouteContext) {
-  return "then" in (context.params as any)
-    ? await (context.params as Promise<{ hubLeagueId: string }>)
-    : (context.params as { hubLeagueId: string });
-}
 
 // GET  /api/hub-leagues/[hubLeagueId]/manager-profile
 // Supports ?profileId=XXX or ?sleeperUserId=XXX to view any member's profile (public read).

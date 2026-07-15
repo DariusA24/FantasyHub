@@ -4,12 +4,7 @@ import { prisma } from "@/utils/db";
 
 export const runtime = "nodejs";
 
-type Ctx = { params: Promise<{ playerId: string }> | { playerId: string } };
-async function rp(ctx: Ctx) {
-  return "then" in (ctx.params as any)
-    ? await (ctx.params as Promise<{ playerId: string }>)
-    : (ctx.params as { playerId: string });
-}
+type Ctx = { params: Promise<{ playerId: string }> };
 
 // GET /api/players/[playerId]/chat?since=ISO_DATE
 // Returns up to 80 messages; `since` returns only messages newer than that timestamp
@@ -18,7 +13,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     const user = await getAuthUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { playerId } = await rp(ctx);
+    const { playerId } = await ctx.params;
     const since = req.nextUrl.searchParams.get("since");
 
     const [profile, messages] = await Promise.all([
@@ -59,7 +54,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const user = await getAuthUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { playerId } = await rp(ctx);
+    const { playerId } = await ctx.params;
 
     const profile = await prisma.profile.findUnique({
       where: { clerkId: user.id },

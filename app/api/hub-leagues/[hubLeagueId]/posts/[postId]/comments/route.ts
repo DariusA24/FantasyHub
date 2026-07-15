@@ -2,17 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/utils/actions";
 import { prisma } from "@/utils/db";
 
-type RouteContext = { params: Promise<{ hubLeagueId: string; postId: string }> | { hubLeagueId: string; postId: string } };
+type RouteContext = { params: Promise<{ hubLeagueId: string; postId: string }> };
 
-async function resolveParams(ctx: RouteContext) {
-  return "then" in (ctx.params as any)
-    ? await (ctx.params as Promise<{ hubLeagueId: string; postId: string }>)
-    : (ctx.params as { hubLeagueId: string; postId: string });
-}
 
 export async function POST(req: NextRequest, ctx: RouteContext) {
   try {
-    const { hubLeagueId, postId } = await resolveParams(ctx);
+    const { hubLeagueId, postId } = await ctx.params;
 
     const user = await getAuthUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -14,17 +14,12 @@ function deriveExcerpt(body: string): string {
   return plain.length > 200 ? plain.slice(0, 200).trimEnd() + "…" : plain;
 }
 
-type Ctx = { params: Promise<{ postId: string }> | { postId: string } };
-async function rp(ctx: Ctx) {
-  return "then" in (ctx.params as any)
-    ? await (ctx.params as Promise<{ postId: string }>)
-    : (ctx.params as { postId: string });
-}
+type Ctx = { params: Promise<{ postId: string }> };
 
 // GET /api/forum/posts/[postId]
 export async function GET(_req: NextRequest, ctx: Ctx) {
   try {
-    const { postId } = await rp(ctx);
+    const { postId } = await ctx.params;
     const user = await getAuthUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -68,7 +63,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
 // PATCH /api/forum/posts/[postId]
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   try {
-    const { postId } = await rp(ctx);
+    const { postId } = await ctx.params;
     const user = await getAuthUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -113,7 +108,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
 // DELETE /api/forum/posts/[postId]
 export async function DELETE(_req: NextRequest, ctx: Ctx) {
   try {
-    const { postId } = await rp(ctx);
+    const { postId } = await ctx.params;
     const user = await getAuthUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
