@@ -2,19 +2,11 @@ import { NextResponse } from "next/server";
 import { getAuthUser } from "@/utils/actions";
 import { prisma } from "@/utils/db";
 
-type RouteParams = {
-  params: { hubLeagueId: string };
-};
-
 export async function GET(
   _req: Request,
-  context: { params: Promise<{ hubLeagueId: string }> } | { params: { hubLeagueId: string } }
+  context: { params: Promise<{ hubLeagueId: string }> }
 ) {
-  // Support both sync and async params typings
-  const resolvedParams =
-    "then" in (context.params as any)
-      ? await (context.params as Promise<{ hubLeagueId: string }>)
-      : (context.params as { hubLeagueId: string });
+  const resolvedParams = await context.params;
 
   const hubLeagueId = resolvedParams.hubLeagueId;
 
@@ -123,7 +115,7 @@ export async function GET(
 // NEW: DELETE /api/hub-leagues/[hubLeagueId] — only owner can delete
 export async function DELETE(
   _req: Request,
-  context: { params: Promise<{ hubLeagueId: string }> } | { params: { hubLeagueId: string } }
+  context: { params: Promise<{ hubLeagueId: string }> }
 ) {
   try {
     const user = await getAuthUser();
@@ -131,11 +123,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const resolvedParams =
-      "then" in (context.params as any)
-        ? await (context.params as Promise<{ hubLeagueId: string }>)
-        : (context.params as { hubLeagueId: string });
-    const hubLeagueId = resolvedParams.hubLeagueId;
+    const { hubLeagueId } = await context.params;
 
     // Get profile for current user
     const profile = await prisma.profile.findUnique({

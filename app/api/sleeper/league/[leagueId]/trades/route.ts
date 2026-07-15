@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/utils/db";
 
-type RouteContext = { params: Promise<{ leagueId: string }> | { leagueId: string } };
+type RouteContext = { params: Promise<{ leagueId: string }> };
 
-async function resolveParams(ctx: RouteContext) {
-  return "then" in (ctx.params as any)
-    ? await (ctx.params as Promise<{ leagueId: string }>)
-    : (ctx.params as { leagueId: string });
-}
 
 const SLEEPER = "https://api.sleeper.app/v1";
 const CACHE = { next: { revalidate: 1800 } } as RequestInit;
@@ -23,7 +18,7 @@ function timeAgo(ms: number): string {
 }
 
 export async function GET(_req: NextRequest, ctx: RouteContext) {
-  const { leagueId } = await resolveParams(ctx);
+  const { leagueId } = await ctx.params;
 
   try {
     // Get current NFL week + rosters + users in parallel

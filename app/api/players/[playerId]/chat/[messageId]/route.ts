@@ -4,12 +4,7 @@ import { prisma } from "@/utils/db";
 
 export const runtime = "nodejs";
 
-type Ctx = { params: Promise<{ playerId: string; messageId: string }> | { playerId: string; messageId: string } };
-async function rp(ctx: Ctx) {
-  return "then" in (ctx.params as any)
-    ? await (ctx.params as Promise<{ playerId: string; messageId: string }>)
-    : (ctx.params as { playerId: string; messageId: string });
-}
+type Ctx = { params: Promise<{ playerId: string; messageId: string }> };
 
 async function getProfileId(clerkId: string) {
   const profile = await prisma.profile.findUnique({
@@ -25,7 +20,7 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
     const user = await getAuthUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { messageId } = await rp(ctx);
+    const { messageId } = await ctx.params;
     const profileId = await getProfileId(user.id);
     if (!profileId) return NextResponse.json({ error: "Profile not found" }, { status: 404 });
 
@@ -49,7 +44,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     const user = await getAuthUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { messageId } = await rp(ctx);
+    const { messageId } = await ctx.params;
     const profileId = await getProfileId(user.id);
     if (!profileId) return NextResponse.json({ error: "Profile not found" }, { status: 404 });
 

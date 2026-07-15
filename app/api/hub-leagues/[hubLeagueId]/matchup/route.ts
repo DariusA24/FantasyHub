@@ -3,13 +3,8 @@ import { getAuthUser } from "@/utils/actions";
 import { prisma } from "@/utils/db";
 import { getSleeperMatchups } from "@/utils/sleeperActions";
 
-type RouteContext = { params: Promise<{ hubLeagueId: string }> | { hubLeagueId: string } };
+type RouteContext = { params: Promise<{ hubLeagueId: string }> };
 
-async function resolveParams(ctx: RouteContext) {
-  return "then" in (ctx.params as any)
-    ? await (ctx.params as Promise<{ hubLeagueId: string }>)
-    : (ctx.params as { hubLeagueId: string });
-}
 
 const SLEEPER = "https://api.sleeper.app/v1";
 const SCORES_CACHE  = { next: { revalidate: 300  } } as RequestInit; // 5 min â€” live scores
@@ -17,7 +12,7 @@ const PROJ_CACHE    = { next: { revalidate: 3600 } } as RequestInit; // 1 hr  â€
 
 export async function GET(_req: NextRequest, ctx: RouteContext) {
   try {
-    const { hubLeagueId } = await resolveParams(ctx);
+    const { hubLeagueId } = await ctx.params;
 
     const user = await getAuthUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

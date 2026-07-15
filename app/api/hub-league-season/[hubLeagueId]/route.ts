@@ -3,15 +3,9 @@ import { prisma } from "@/utils/db";
 
 export async function GET(
   _req: Request,
-  context:
-    | { params: { hubLeagueId?: string | string[] } }
-    | { params: Promise<{ hubLeagueId?: string | string[] }> }
+  context: { params: Promise<{ hubLeagueId?: string | string[] }> }
 ) {
-  // Support both sync and async params
-  const resolvedParams =
-    "then" in (context.params as any)
-      ? await (context.params as Promise<{ hubLeagueId?: string | string[] }>)
-      : (context.params as { hubLeagueId?: string | string[] });
+  const resolvedParams = await context.params;
 
   const rawId = resolvedParams.hubLeagueId;
   const hubLeagueId = Array.isArray(rawId) ? rawId[0] : rawId;

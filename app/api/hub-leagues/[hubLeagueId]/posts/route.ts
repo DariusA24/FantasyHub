@@ -2,13 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/utils/actions";
 import { prisma } from "@/utils/db";
 
-type RouteContext = { params: Promise<{ hubLeagueId: string }> | { hubLeagueId: string } };
+type RouteContext = { params: Promise<{ hubLeagueId: string }> };
 
-async function resolveParams(ctx: RouteContext) {
-  return "then" in (ctx.params as any)
-    ? await (ctx.params as Promise<{ hubLeagueId: string }>)
-    : (ctx.params as { hubLeagueId: string });
-}
 
 function calcReadTime(body: string): string {
   const words = body.trim().split(/\s+/).length;
@@ -25,7 +20,7 @@ function deriveExcerpt(body: string): string {
 
 export async function GET(_req: NextRequest, ctx: RouteContext) {
   try {
-    const { hubLeagueId } = await resolveParams(ctx);
+    const { hubLeagueId } = await ctx.params;
 
     const user = await getAuthUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -87,7 +82,7 @@ export async function GET(_req: NextRequest, ctx: RouteContext) {
 
 export async function POST(req: NextRequest, ctx: RouteContext) {
   try {
-    const { hubLeagueId } = await resolveParams(ctx);
+    const { hubLeagueId } = await ctx.params;
 
     const user = await getAuthUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -2,17 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthUser } from "@/utils/actions";
 import { prisma } from "@/utils/db";
 
-type Ctx = { params: Promise<{ postId: string }> | { postId: string } };
-async function rp(ctx: Ctx) {
-  return "then" in (ctx.params as any)
-    ? await (ctx.params as Promise<{ postId: string }>)
-    : (ctx.params as { postId: string });
-}
+type Ctx = { params: Promise<{ postId: string }> };
 
 // POST /api/forum/posts/[postId]/like  { value: 1 | -1 }
 export async function POST(req: NextRequest, ctx: Ctx) {
   try {
-    const { postId } = await rp(ctx);
+    const { postId } = await ctx.params;
     const user = await getAuthUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

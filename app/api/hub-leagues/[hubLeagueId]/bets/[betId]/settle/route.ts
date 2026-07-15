@@ -4,14 +4,9 @@ import { prisma } from "@/utils/db";
 
 export async function POST(
   req: Request,
-  context:
-    | { params: Promise<{ hubLeagueId: string; betId: string }> }
-    | { params: { hubLeagueId: string; betId: string } }
+  context: { params: Promise<{ hubLeagueId: string; betId: string }> }
 ) {
-  const resolvedParams =
-    "then" in (context.params as any)
-      ? await (context.params as Promise<{ hubLeagueId: string; betId: string }>)
-      : (context.params as { hubLeagueId: string; betId: string });
+  const resolvedParams = await context.params;
 
   const { hubLeagueId, betId } = resolvedParams;
 

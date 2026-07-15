@@ -4,14 +4,9 @@ export const dynamic = "force-dynamic";
 
 export async function GET(
   _req: NextRequest,
-  context: { params: Promise<{ leagueId: string }> | { leagueId: string } }
+  context: { params: Promise<{ leagueId: string }> }
 ) {
-  const params =
-    "then" in (context.params as any)
-      ? await (context.params as Promise<{ leagueId: string }>)
-      : (context.params as { leagueId: string });
-
-  const { leagueId } = params;
+  const { leagueId } = await context.params;
 
   if (!leagueId) {
     return NextResponse.json({ error: "Missing leagueId" }, { status: 400 });

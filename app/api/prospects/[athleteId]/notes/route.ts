@@ -4,12 +4,7 @@ import { prisma } from "@/utils/db";
 
 export const runtime = "nodejs";
 
-type Ctx = { params: Promise<{ athleteId: string }> | { athleteId: string } };
-async function rp(ctx: Ctx) {
-  return "then" in (ctx.params as any)
-    ? await (ctx.params as Promise<{ athleteId: string }>)
-    : (ctx.params as { athleteId: string });
-}
+type Ctx = { params: Promise<{ athleteId: string }> };
 
 const NOTE_SELECT = {
   id: true,
@@ -35,7 +30,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     const user = await getAuthUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { athleteId } = await rp(ctx);
+    const { athleteId } = await ctx.params;
 
     const profile = await prisma.profile.findUnique({
       where: { clerkId: user.id },
@@ -67,7 +62,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const user = await getAuthUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { athleteId } = await rp(ctx);
+    const { athleteId } = await ctx.params;
 
     const profile = await prisma.profile.findUnique({
       where: { clerkId: user.id },
