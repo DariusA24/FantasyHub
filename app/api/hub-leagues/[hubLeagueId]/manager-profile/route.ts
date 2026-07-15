@@ -9,7 +9,7 @@ type RouteContext = { params: Promise<{ hubLeagueId: string }> };
 // Supports ?profileId=XXX or ?sleeperUserId=XXX to view any member's profile (public read).
 export async function GET(req: NextRequest, context: RouteContext) {
   try {
-    const { hubLeagueId } = await resolveParams(context);
+    const { hubLeagueId } = await context.params;
 
     const hubLeague = await prisma.hubLeague.findUnique({
       where: { id: hubLeagueId },
@@ -78,7 +78,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
 // PATCH /api/hub-leagues/[hubLeagueId]/manager-profile
 export async function PATCH(req: NextRequest, context: RouteContext) {
   try {
-    const { hubLeagueId } = await resolveParams(context);
+    const { hubLeagueId } = await context.params;
 
     const user = await getAuthUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
