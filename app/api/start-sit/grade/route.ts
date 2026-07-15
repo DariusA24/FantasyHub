@@ -102,7 +102,7 @@ async function gradeWeek(week: number, season: string) {
     await Promise.all(updates);
 
     for (const vote of matchup.votes) {
-      affectedProfileIds.add(vote.profileId);
+      if (vote.profileId != null) affectedProfileIds.add(vote.profileId);
       totalGraded++;
     }
   }

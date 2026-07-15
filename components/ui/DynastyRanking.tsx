@@ -23,7 +23,7 @@ const clientCachePromise: Record<string, Promise<Record<string, FantasyCalcEntry
 async function loadDynastyValues(numQbs: 1 | 2): Promise<Record<string, FantasyCalcEntry | null>> {
   const key = String(numQbs);
   if (clientCache[key]) return clientCache[key];
-  if (clientCachePromise[key]) return clientCachePromise[key];
+  if (clientCachePromise[key] !== undefined) return clientCachePromise[key];
 
   clientCachePromise[key] = fetch(`/api/dynasty-rankings/all?numQbs=${numQbs}`)
     .then((res) => {

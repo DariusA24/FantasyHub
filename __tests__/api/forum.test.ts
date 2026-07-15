@@ -51,11 +51,11 @@ const mockPost = {
   author: { id: PROFILE_ID, firstName: "Alice", lastName: "Smith", username: "alice", profileImage: "" },
 };
 
-function makeReq(url: string, opts: RequestInit = {}) {
+function makeReq(url: string, opts: ConstructorParameters<typeof NextRequest>[1] = {}) {
   return new NextRequest(url, opts);
 }
 function postCtx(postId = POST_ID) {
-  return { params: { postId } };
+  return { params: Promise.resolve({ postId }) };
 }
 
 // ─── Helper: reset all mocks ──────────────────────────────────────────────────
