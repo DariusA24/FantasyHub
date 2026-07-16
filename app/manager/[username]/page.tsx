@@ -147,9 +147,10 @@ async function loadManagerData(username: string) {
   };
 }
 
-export default async function ManagerPage({ params }: { params: { username: string } }) {
+export default async function ManagerPage({ params }: { params: Promise<{ username: string }> }) {
   const { userId: viewerClerkId } = await auth();
-  const data = await loadManagerData(params.username);
+  const { username } = await params;
+  const data = await loadManagerData(username);
   if (!data) notFound();
 
   const { profile, sleeperUser, careerStats, leagueHistory, mostDrafted } = data;
