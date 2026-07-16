@@ -67,7 +67,7 @@ export function LeagueBlog({ apiBase }: Props) {
 
   return (
     <>
-      <section className="col-span-3 hub-card p-5">
+      <section className="md:col-span-3 hub-card p-5">
         {/* Header */}
         <div className="mb-4 flex items-center justify-between">
           <div>

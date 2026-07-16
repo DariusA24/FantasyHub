@@ -37,6 +37,7 @@ model Profile {
   wallets              Wallet[]                  @relation("ProfileWallets")
   createdBets          Bet[]                     @relation("BetCreator")
   takenBets            Bet[]                     @relation("BetTaker")
+  wagers               BetWager[]                @relation("ProfileWagers")
   startSitVotes        StartSitVote[]            @relation("StartSitVotes")
   predictionStat       UserPredictionStat?       @relation("PredictionStat")
   espnSwid             String?
@@ -72,6 +73,7 @@ model HubLeague {
   id          String            @id @default(cuid())
   name        String
   description String?
+  punishment  String?           // last-place punishment displayed on the bets page
   ownerId     Int
   owner       Profile           @relation(fields: [ownerId], references: [id])
   seasons         HubLeagueSeason[]
@@ -86,6 +88,7 @@ model HubLeague {
   h2hRecords      HubLeagueH2H[]
   wallets         Wallet[]
   bets            Bet[]
+  betLines        BetLine[]
 }
 
 model HubLeagueChampion {
@@ -405,6 +408,61 @@ model Bet {
   @@index([hubLeagueId])
   @@index([creatorId])
   @@index([takerId])
+}
+
+// ─── House Betting Lines (The Book) ──────────────────────────────────────────
+
+model BetLine {
+  id              String    @id @default(cuid())
+  hubLeagueId     String
+  sleeperLeagueId String    // stored at creation so settlement doesn't need to re-resolve seasons
+  season          String
+  week            Int
+  matchupId       Int       // sleeper matchup_id
+  homeRosterId    Int
+  awayRosterId    Int
+  homeName        String
+  awayName        String
+  homeProjected   Float
+  awayProjected   Float
+  homeOdds        Float     // decimal payout multiplier (stake × odds returned on win)
+  awayOdds        Float
+  totalLine       Float     // over/under on combined points
+  overOdds        Float     @default(1.9)
+  underOdds       Float     @default(1.9)
+  status          String    @default("open") // "open" | "settled" | "void"
+  homeScore       Float?
+  awayScore       Float?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  settledAt       DateTime?
+
+  hubLeague HubLeague  @relation(fields: [hubLeagueId], references: [id], onDelete: Cascade)
+  wagers    BetWager[]
+
+  @@unique([hubLeagueId, season, week, matchupId])
+  @@index([hubLeagueId])
+  @@index([status])
+}
+
+model BetWager {
+  id        String    @id @default(cuid())
+  lineId    String
+  profileId Int
+  pick      String    // "home" | "away" | "over" | "under"
+  stake     Int
+  odds      Float     // frozen at bet time
+  payout    Int?      // coins credited at settlement (0 = lost, stake = push/void)
+  status    String    @default("pending") // "pending" | "won" | "lost" | "push" | "void"
+  createdAt DateTime  @default(now())
+  settledAt DateTime?
+
+  line    BetLine @relation(fields: [lineId], references: [id], onDelete: Cascade)
+  profile Profile @relation("ProfileWagers", fields: [profileId], references: [id])
+
+  @@unique([lineId, profileId, pick])
+  @@index([lineId])
+  @@index([profileId])
 }
 
 // ─── Start / Sit Community Voting ────────────────────────────────────────────
