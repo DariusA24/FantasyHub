@@ -3,6 +3,10 @@
     {
       "path": "/api/start-sit/grade",
       "schedule": "0 10 * * 2"
+    },
+    {
+      "path": "/api/cron/settle-lines",
+      "schedule": "30 10 * * 2"
     }
   ]
 }

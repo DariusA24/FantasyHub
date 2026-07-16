@@ -1,7 +1,6 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation'; // NEW
-import { getSleeperLeagueAvatarThumbnail } from '@/utils/sleeperActions';
 import { Users, ChevronRight } from 'lucide-react';
 
 type LeagueCardProps = {
@@ -30,23 +29,14 @@ export function LeagueCard({
   onClick,
 }: LeagueCardProps) {
   const router = useRouter(); // NEW
-  const [leagueThumbnail, setLeagueThumbnail] = React.useState<string | null>(null);
+  const [imageFailed, setImageFailed] = React.useState(false);
 
-  useEffect(() => {
-    const fetchThumbnail = async () => {
-      try {
-        if (photo) {
-          const thumb = await getSleeperLeagueAvatarThumbnail(photo);
-          setLeagueThumbnail(thumb ?? '/default-league-avatar.png');
-        } else {
-          setLeagueThumbnail('/default-league-avatar.png');
-        }
-      } catch {
-        setLeagueThumbnail('/default-league-avatar.png');
-      }
-    };
-    fetchThumbnail();
-  }, [photo]);
+  const leagueThumbnail =
+    photo && !imageFailed
+      ? photo.startsWith('http')
+        ? photo
+        : `https://sleepercdn.com/avatars/thumbs/${encodeURIComponent(photo)}`
+      : null;
 
   const formattedTeams =
     typeof total_rosters === 'number' ? `${total_rosters} teams` : '– teams';
@@ -87,13 +77,20 @@ export function LeagueCard({
     >
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Image
-            src={leagueThumbnail || '/default-league-avatar.png'}
-            alt={`${name} Logo`}
-            width={64}
-            height={64}
-            className="h-16 w-16 rounded-md object-cover flex-shrink-0"
-          />
+          {leagueThumbnail ? (
+            <Image
+              src={leagueThumbnail}
+              alt={`${name} Logo`}
+              width={64}
+              height={64}
+              className="h-16 w-16 rounded-md object-cover flex-shrink-0"
+              onError={() => setImageFailed(true)}
+            />
+          ) : (
+            <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-md bg-zinc-100 dark:bg-zinc-800 text-2xl">
+              🏈
+            </div>
+          )}
           <div className="min-w-0">
             <h4 className="text-lg font-semibold text-amber-600 dark:text-[#F4D06F] line-clamp-1">
               {name}

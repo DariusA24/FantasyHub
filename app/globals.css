@@ -9,6 +9,10 @@ html {
 
 body {
   font-family: 'Inter', sans-serif;
+  /* Guard against any stray element wider than the viewport causing
+     horizontal scroll on mobile. `clip` doesn't create a scroll container,
+     so position: sticky keeps working. */
+  overflow-x: clip;
 }
 
 @layer components {

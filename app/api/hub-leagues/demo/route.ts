@@ -6,6 +6,7 @@ export async function GET() {
       id: "demo",
       name: "Gridiron Kings",
       description: "Five seasons deep and still going. The most competitive group of guys you'll ever find on a Thursday night.",
+      punishment: "24 hours in a Waffle House — every waffle eaten knocks off an hour",
       createdAt: "2021-07-01T00:00:00.000Z",
       ownerId: 1,
       owner: {

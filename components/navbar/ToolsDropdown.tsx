@@ -13,7 +13,7 @@ import {
   FiCalendar,
 } from 'react-icons/fi';
 
-const TOOLS = [
+export const TOOLS = [
   {
     href: '/tools/trade-analyzer',
     label: 'Trade Analyzer',
