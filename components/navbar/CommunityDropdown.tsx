@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { FiChevronDown, FiUsers, FiMessageSquare, FiShoppingBag } from 'react-icons/fi';
 
-const COMMUNITY_LINKS = [
+export const COMMUNITY_LINKS = [
   {
     href: '/forum',
     label: 'Forum',

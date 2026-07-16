@@ -464,10 +464,10 @@ export default async function EspnLeaguePage({
         </div>
 
         {/* ─── Managers + Blog + Recent Trades ──────────────── */}
-        <div className="mt-4 grid gap-4 grid-cols-6 items-start">
+        <div className="mt-4 grid gap-4 grid-cols-1 md:grid-cols-6 items-start">
 
           {/* Managers */}
-          <section className="col-span-1 hub-card p-5">
+          <section className="md:col-span-1 hub-card p-5">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-gray-900 dark:text-zinc-100">Managers</h2>
               <span className="rounded-full bg-gray-100 dark:bg-zinc-800/60 px-2 py-0.5 text-[10px] text-gray-500 dark:text-zinc-400">
@@ -502,7 +502,7 @@ export default async function EspnLeaguePage({
           <LeagueBlog apiBase={`/api/espn/league/${leagueId}`} />
 
           {/* Recent Trades */}
-          <section className="col-span-2 hub-card p-5">
+          <section className="md:col-span-2 hub-card p-5">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-gray-900 dark:text-zinc-100">Recent Trades</h2>
               <span className="rounded-full border border-emerald-500/20 bg-emerald-500/5 px-2 py-0.5 text-[10px] text-emerald-400">

@@ -31,7 +31,7 @@ export function LeagueNav() {
   return (
     <>
       {isDemo && (
-        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-[#F4D06F]/20 bg-[#F4D06F]/5 px-4 py-2.5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#F4D06F]/20 bg-[#F4D06F]/5 px-4 py-2.5">
           <div className="flex items-center gap-2">
             <span className="h-1.5 w-1.5 rounded-full bg-[#F4D06F] shadow-[0_0_8px_rgba(244,208,111,0.8)]" />
             <p className="text-xs font-medium text-amber-700 dark:text-[#F4D06F]">
@@ -47,7 +47,7 @@ export function LeagueNav() {
         </div>
       )}
     <nav className="mb-6 border-b border-gray-200 dark:border-zinc-800 pb-2">
-      <ul className="ml-auto flex justify-end gap-4 text-sm">
+      <ul className="ml-auto flex flex-wrap justify-start gap-2 sm:justify-end sm:gap-4 text-sm">
         {items.map((item) => {
           const isActive = pathname === item.href;
           const Icon = item.icon;

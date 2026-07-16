@@ -538,10 +538,10 @@ export default function HubLeaguePage() {
         </section>
 
         {/* ─── Members + Blog + Recent Activity ───────────────── */}
-        <div className="grid gap-4 grid-cols-6 mb-8 items-start">
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-6 mb-8 items-start">
 
           {/* Managers — sourced from Sleeper, all league members regardless of Hub account */}
-          <section className="col-span-1 hub-card p-5">
+          <section className="md:col-span-1 hub-card p-5">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-gray-900 dark:text-zinc-100">Managers</h2>
               <span className="rounded-full bg-gray-100 dark:bg-zinc-800/60 px-2 py-0.5 text-[10px] text-gray-500 dark:text-zinc-400">
@@ -622,7 +622,7 @@ export default function HubLeaguePage() {
           <LeagueBlog apiBase={`/api/hub-leagues/${hubLeagueId}`} />
 
           {/* Recent Activity */}
-          <section className="col-span-2 hub-card p-5">
+          <section className="md:col-span-2 hub-card p-5">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-gray-900 dark:text-zinc-100">Recent Trades</h2>
               <span className="rounded-full border border-emerald-500/20 bg-emerald-500/5 px-2 py-0.5 text-[10px] text-emerald-400">

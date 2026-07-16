@@ -8,6 +8,7 @@ import { FiHome, FiLogIn, FiGrid, FiPlay } from 'react-icons/fi';
 import ToolsDropdown from './ToolsDropdown';
 import CommunityDropdown from './CommunityDropdown';
 import NavSearch from './NavSearch';
+import MobileMenu from './MobileMenu';
 
 function NavBar() {
   // const { isSignedIn } = useUser();
@@ -29,27 +30,33 @@ function NavBar() {
           {/* Right: Conditional Layout */}
           {isSignedIn ? (
             <div className="flex items-center gap-2 sm:gap-3">
-              <Link
-                href="/"
-                className="inline-flex items-center gap-1.5 rounded-full px-3 sm:px-4 py-1.5 text-[11px] sm:text-xs font-medium text-zinc-600 dark:text-amber-50/80 hover:text-zinc-900 dark:hover:text-amber-50 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/30 dark:hover:border-amber-500/40 transition-all duration-150"
-              >
-                <FiHome className="h-3.5 w-3.5" />
-                <span className="tracking-[0.18em]">HOME</span>
-              </Link>
-              <Link
-                href="/manager" // go directly to your gm route
-                className="inline-flex items-center gap-1.5 rounded-full px-3 sm:px-4 py-1.5 text-[11px] sm:text-xs font-medium text-zinc-600 dark:text-amber-50/80 hover:text-zinc-900 dark:hover:text-amber-50 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/30 dark:hover:border-amber-500/40 transition-all duration-150"
-              >
-                <FiGrid className="h-3.5 w-3.5" />
-                <span className="tracking-[0.18em]">MANAGER</span>
-              </Link>
-              <CommunityDropdown />
-              <NavSearch />
-              <ToolsDropdown />
+              {/* Full link row — desktop only; collapses into MobileMenu below md */}
+              <div className="hidden md:flex items-center gap-2 sm:gap-3">
+                <Link
+                  href="/"
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 sm:px-4 py-1.5 text-[11px] sm:text-xs font-medium text-zinc-600 dark:text-amber-50/80 hover:text-zinc-900 dark:hover:text-amber-50 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/30 dark:hover:border-amber-500/40 transition-all duration-150"
+                >
+                  <FiHome className="h-3.5 w-3.5" />
+                  <span className="tracking-[0.18em]">HOME</span>
+                </Link>
+                <Link
+                  href="/manager" // go directly to your gm route
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 sm:px-4 py-1.5 text-[11px] sm:text-xs font-medium text-zinc-600 dark:text-amber-50/80 hover:text-zinc-900 dark:hover:text-amber-50 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/30 dark:hover:border-amber-500/40 transition-all duration-150"
+                >
+                  <FiGrid className="h-3.5 w-3.5" />
+                  <span className="tracking-[0.18em]">MANAGER</span>
+                </Link>
+                <CommunityDropdown />
+                <NavSearch />
+                <ToolsDropdown />
+              </div>
               {/* Dark mode + profile */}
-              <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-3 border-l border-zinc-200 dark:border-amber-100/10">
+              <div className="flex items-center gap-2 sm:gap-3 md:pl-3 md:border-l border-zinc-200 dark:border-amber-100/10">
                 <DarkMode />
                 <LinkDropDown />
+              </div>
+              <div className="md:hidden">
+                <MobileMenu />
               </div>
             </div>
           ) : (

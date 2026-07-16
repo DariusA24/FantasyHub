@@ -12,8 +12,10 @@ import {
   FiX,
   FiTarget,
   FiUsers,
+  FiEdit2,
+  FiLock,
 } from "react-icons/fi";
-import { GiTwoCoins } from "react-icons/gi";
+import { GiTwoCoins, GiDeathSkull, GiRollingDices } from "react-icons/gi";
 
 type Profile = {
   id: number;
@@ -43,6 +45,43 @@ type Wallet = {
   balance: number;
 };
 
+type LineWager = {
+  id: string;
+  pick: "home" | "away" | "over" | "under";
+  stake: number;
+  odds: number;
+  payout: number | null;
+  status: "pending" | "won" | "lost" | "push" | "void";
+  profile: { id: number; username: string };
+};
+
+type Line = {
+  id: string;
+  week: number;
+  matchupId: number;
+  homeName: string;
+  awayName: string;
+  homeProjected: number;
+  awayProjected: number;
+  homeOdds: number;
+  awayOdds: number;
+  totalLine: number;
+  overOdds: number;
+  underOdds: number;
+  status: "open" | "settled" | "void";
+  homeScore: number | null;
+  awayScore: number | null;
+  wagers: LineWager[];
+};
+
+type Book = {
+  week: number;
+  season: string;
+  seasonType: string;
+  locked: boolean;
+  lines: Line[];
+};
+
 const STATUS_STYLE: Record<string, string> = {
   open: "border-amber-500/30 bg-amber-500/10 text-amber-400",
   accepted: "border-blue-500/30 bg-blue-500/10 text-blue-400",
@@ -56,6 +95,177 @@ const STATUS_ICON: Record<string, React.ReactNode> = {
   settled: <FiCheckCircle className="h-3 w-3" />,
   cancelled: <FiXCircle className="h-3 w-3" />,
 };
+
+const PUNISHMENT_IDEAS = [
+  "24 hours in a Waffle House — every waffle eaten knocks off an hour",
+  "Take the full SAT and share the score report with the league",
+  "Perform 5 minutes of stand-up comedy at a real open mic night",
+  "Recreate a maternity-style photoshoot and send the album to the league",
+  "Milk Mile: chug a glass of milk, run a lap, repeat four times",
+  "Wear the league champion's jersey to every draft event next season",
+  "Get roasted by the league for 10 minutes — no talking back allowed",
+  "Buy the entire league's food and drinks at next season's draft",
+  "Wear a shirt with the champion's face on it for a full week",
+  "Let the champion pick your team name and avatar for all of next season",
+  "Post a public video singing the league champion's praises",
+  "Dress up as a hot dog and take photos at five different gas stations",
+  "Eat a spoonful of the hottest hot sauce the league can find, on camera",
+  "Write and recite a heartfelt poem honoring the league champion",
+];
+
+// ─── Punishment Bar ──────────────────────────────────────────────────────
+function PunishmentBar({
+  hubLeagueId,
+  punishment,
+  isOwner,
+  onUpdated,
+}: {
+  hubLeagueId: string;
+  punishment: string | null;
+  isOwner: boolean;
+  onUpdated: (punishment: string | null) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save(value: string) {
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/hub-leagues/${hubLeagueId}/punishment`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ punishment: value }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setError(d.error ?? "Failed to save punishment");
+        return;
+      }
+      const data = await res.json();
+      onUpdated(data.punishment ?? null);
+      setEditing(false);
+      setDraft("");
+    } catch {
+      setError("Something went wrong");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function randomPick() {
+    const pool = PUNISHMENT_IDEAS.filter((p) => p !== punishment);
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  const inputClass =
+    "flex-1 rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-gray-900 dark:text-zinc-100 placeholder:text-gray-400 dark:placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-red-500/40";
+
+  const showForm = isOwner && (editing || !punishment);
+
+  return (
+    <div className="mb-6 rounded-2xl border border-red-500/25 bg-red-500/[0.04] px-4 py-3">
+      <div className="flex items-center gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-500/10">
+          <GiDeathSkull className="h-5 w-5 text-red-400" />
+        </div>
+
+        {showForm ? (
+          <form
+            className="flex flex-1 flex-wrap items-center gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (draft.trim()) save(draft.trim());
+            }}
+          >
+            <input
+              className={inputClass}
+              placeholder="Set the last-place punishment…"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              maxLength={300}
+              autoFocus={editing}
+            />
+            <button
+              type="submit"
+              disabled={saving || !draft.trim()}
+              className="rounded-lg bg-red-500/90 px-3 py-2 text-xs font-bold text-white transition hover:bg-red-500 disabled:opacity-40"
+            >
+              {saving ? "Saving…" : "Set"}
+            </button>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => save(randomPick())}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-400 transition hover:bg-red-500/20 disabled:opacity-40"
+            >
+              <GiRollingDices className="h-4 w-4" />
+              Randomize
+            </button>
+            {editing && (
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => {
+                  setEditing(false);
+                  setDraft("");
+                  setError(null);
+                }}
+                className="text-xs font-medium text-gray-400 dark:text-zinc-500 hover:text-gray-600 dark:hover:text-zinc-300"
+              >
+                Cancel
+              </button>
+            )}
+          </form>
+        ) : (
+          <>
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-red-400/80">
+                League Punishment
+              </p>
+              {punishment ? (
+                <p className="text-sm font-semibold text-gray-900 dark:text-zinc-100">
+                  {punishment}
+                </p>
+              ) : (
+                <p className="text-sm italic text-gray-400 dark:text-zinc-500">
+                  No punishment set yet — the commissioner hasn&apos;t decided
+                  last place&apos;s fate.
+                </p>
+              )}
+            </div>
+            {isOwner && punishment && (
+              <div className="flex shrink-0 items-center gap-1.5">
+                <button
+                  disabled={saving}
+                  onClick={() => save(randomPick())}
+                  title="Randomize punishment"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 transition hover:bg-red-500/20 disabled:opacity-40"
+                >
+                  <GiRollingDices className="h-4 w-4" />
+                </button>
+                <button
+                  disabled={saving}
+                  onClick={() => {
+                    setDraft(punishment);
+                    setEditing(true);
+                  }}
+                  title="Edit punishment"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 dark:border-zinc-700 text-gray-400 dark:text-zinc-500 transition hover:text-gray-600 dark:hover:text-zinc-300"
+                >
+                  <FiEdit2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+      {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
+    </div>
+  );
+}
 
 // ─── Create Bet Modal ────────────────────────────────────────────────────
 function CreateBetModal({
@@ -442,6 +652,347 @@ function BetCard({
   );
 }
 
+// ─── The Book (house lines) ──────────────────────────────────────────────
+const PICK_LABEL: Record<LineWager["pick"], string> = {
+  home: "ML",
+  away: "ML",
+  over: "Over",
+  under: "Under",
+};
+
+const WAGER_STATUS_STYLE: Record<LineWager["status"], string> = {
+  pending: "border-amber-500/30 bg-amber-500/10 text-amber-400",
+  won: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
+  lost: "border-red-500/30 bg-red-500/10 text-red-400",
+  push: "border-zinc-500/30 bg-zinc-500/10 text-zinc-400",
+  void: "border-zinc-500/30 bg-zinc-500/10 text-zinc-400",
+};
+
+function OddsButton({
+  label,
+  odds,
+  active,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  odds: number;
+  active: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      disabled={disabled}
+      onClick={onClick}
+      className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${
+        active
+          ? "border-[#F4D06F]/50 bg-[#F4D06F]/15 text-[#F4D06F]"
+          : "border-gray-200 dark:border-zinc-700 text-gray-600 dark:text-zinc-300 hover:border-[#F4D06F]/40 hover:text-[#F4D06F]"
+      }`}
+    >
+      <span className="text-gray-400 dark:text-zinc-500 font-medium">{label}</span>
+      {odds.toFixed(2)}x
+    </button>
+  );
+}
+
+function LineCard({
+  line,
+  locked,
+  currentProfileId,
+  balance,
+  onPlaced,
+}: {
+  line: Line;
+  locked: boolean;
+  currentProfileId: number | null;
+  balance: number | null;
+  onPlaced: (lineId: string, wager: LineWager) => void;
+}) {
+  const [pick, setPick] = useState<LineWager["pick"] | null>(null);
+  const [stake, setStake] = useState("");
+  const [placing, setPlacing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const params = useParams();
+  const hubLeagueId = String(params?.hubLeagueId ?? "");
+
+  const myWagers = line.wagers.filter((w) => w.profile.id === currentProfileId);
+  const otherCount = line.wagers.length - myWagers.length;
+  const betting = !locked && line.status === "open";
+
+  const oddsFor = (p: LineWager["pick"]) =>
+    p === "home"
+      ? line.homeOdds
+      : p === "away"
+      ? line.awayOdds
+      : p === "over"
+      ? line.overOdds
+      : line.underOdds;
+
+  const pickDescription = (p: LineWager["pick"]) =>
+    p === "home"
+      ? `${line.homeName} wins`
+      : p === "away"
+      ? `${line.awayName} wins`
+      : p === "over"
+      ? `Over ${line.totalLine}`
+      : `Under ${line.totalLine}`;
+
+  const alreadyPicked = (p: LineWager["pick"]) => myWagers.some((w) => w.pick === p);
+
+  function togglePick(p: LineWager["pick"]) {
+    setError(null);
+    setPick((prev) => (prev === p ? null : p));
+  }
+
+  async function placeWager() {
+    if (!pick) return;
+    const parsedStake = parseInt(stake, 10);
+    if (!parsedStake || parsedStake <= 0) {
+      setError("Enter a valid stake");
+      return;
+    }
+    setPlacing(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/hub-leagues/${hubLeagueId}/lines/${line.id}/wager`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pick, stake: parsedStake }),
+        }
+      );
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setError(d.error ?? "Failed to place wager");
+        return;
+      }
+      const data = await res.json();
+      onPlaced(line.id, data.wager);
+      setPick(null);
+      setStake("");
+    } catch {
+      setError("Something went wrong");
+    } finally {
+      setPlacing(false);
+    }
+  }
+
+  const stakeNum = parseInt(stake, 10) || 0;
+  const potential = pick ? Math.floor(stakeNum * oddsFor(pick)) : 0;
+
+  return (
+    <li className="hub-inner-card rounded-xl px-4 py-3">
+      {/* Moneyline rows */}
+      {(["home", "away"] as const).map((side) => {
+        const name = side === "home" ? line.homeName : line.awayName;
+        const projected = side === "home" ? line.homeProjected : line.awayProjected;
+        const score = side === "home" ? line.homeScore : line.awayScore;
+        return (
+          <div key={side} className="flex items-center justify-between gap-2 py-1">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-gray-900 dark:text-zinc-100">
+                {name}
+              </p>
+              <p className="text-[11px] text-gray-400 dark:text-zinc-500">
+                {line.status === "settled"
+                  ? `Final: ${score?.toFixed(2) ?? "—"}`
+                  : `Proj ${projected.toFixed(1)}`}
+              </p>
+            </div>
+            {betting && (
+              <OddsButton
+                label="ML"
+                odds={oddsFor(side)}
+                active={pick === side}
+                disabled={alreadyPicked(side)}
+                onClick={() => togglePick(side)}
+              />
+            )}
+          </div>
+        );
+      })}
+
+      {/* Total row */}
+      <div className="mt-1 flex items-center justify-between gap-2 border-t border-gray-100 dark:border-zinc-800 pt-2">
+        <p className="text-[11px] font-medium text-gray-400 dark:text-zinc-500">
+          Total <span className="font-bold text-gray-600 dark:text-zinc-300">{line.totalLine}</span>
+        </p>
+        {betting ? (
+          <div className="flex gap-1.5">
+            <OddsButton
+              label="Over"
+              odds={line.overOdds}
+              active={pick === "over"}
+              disabled={alreadyPicked("over")}
+              onClick={() => togglePick("over")}
+            />
+            <OddsButton
+              label="Under"
+              odds={line.underOdds}
+              active={pick === "under"}
+              disabled={alreadyPicked("under")}
+              onClick={() => togglePick("under")}
+            />
+          </div>
+        ) : (
+          <span className="inline-flex items-center gap-1 text-[11px] text-gray-400 dark:text-zinc-500">
+            {line.status === "open" ? (
+              <>
+                <FiLock className="h-3 w-3" /> Locked
+              </>
+            ) : (
+              <span className="capitalize">{line.status}</span>
+            )}
+          </span>
+        )}
+      </div>
+
+      {/* Stake entry */}
+      {pick && betting && (
+        <div className="mt-3 rounded-lg border border-[#F4D06F]/25 bg-[#F4D06F]/5 p-3">
+          <p className="mb-2 text-[11px] font-medium text-gray-500 dark:text-zinc-400">
+            {pickDescription(pick)} @ {oddsFor(pick).toFixed(2)}x
+          </p>
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <GiTwoCoins className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#F4D06F]" />
+              <input
+                type="number"
+                min={1}
+                max={balance ?? undefined}
+                placeholder="Stake"
+                value={stake}
+                onChange={(e) => setStake(e.target.value)}
+                className="w-full rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 py-1.5 pl-8 pr-2 text-sm text-gray-900 dark:text-zinc-100 placeholder:text-gray-400 dark:placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-[#F4D06F]/50"
+              />
+            </div>
+            <button
+              disabled={placing || !stakeNum}
+              onClick={placeWager}
+              className="rounded-lg bg-[#F4D06F] px-3 py-1.5 text-xs font-bold text-black transition hover:bg-[#e6c35e] disabled:opacity-40"
+            >
+              {placing ? "Placing…" : "Place"}
+            </button>
+          </div>
+          {stakeNum > 0 && (
+            <p className="mt-1.5 text-[11px] text-gray-400 dark:text-zinc-500">
+              Pays <span className="font-bold text-[#F4D06F]">{potential.toLocaleString()}</span>{" "}
+              ({(potential - stakeNum).toLocaleString()} profit)
+            </p>
+          )}
+          {error && <p className="mt-1.5 text-[11px] text-red-400">{error}</p>}
+        </div>
+      )}
+
+      {/* My wagers + activity */}
+      {(myWagers.length > 0 || otherCount > 0) && (
+        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+          {myWagers.map((w) => (
+            <span
+              key={w.id}
+              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+                WAGER_STATUS_STYLE[w.status]
+              }`}
+            >
+              {w.pick === "home"
+                ? line.homeName
+                : w.pick === "away"
+                ? line.awayName
+                : PICK_LABEL[w.pick]}{" "}
+              · {w.stake.toLocaleString()} @ {w.odds.toFixed(2)}x
+              {w.status !== "pending" &&
+                ` · ${w.status === "won" ? `+${w.payout?.toLocaleString()}` : w.status}`}
+            </span>
+          ))}
+          {otherCount > 0 && (
+            <span className="text-[10px] text-gray-400 dark:text-zinc-500">
+              {otherCount} other wager{otherCount === 1 ? "" : "s"}
+            </span>
+          )}
+        </div>
+      )}
+    </li>
+  );
+}
+
+function BookSection({
+  book,
+  loading,
+  currentProfileId,
+  balance,
+  onPlaced,
+}: {
+  book: Book | null;
+  loading: boolean;
+  currentProfileId: number | null;
+  balance: number | null;
+  onPlaced: (lineId: string, wager: LineWager) => void;
+}) {
+  if (loading) {
+    return (
+      <div className="space-y-3 animate-pulse">
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="h-32 rounded-2xl bg-gray-100 dark:bg-zinc-800/40" />
+        ))}
+      </div>
+    );
+  }
+
+  if (!book) {
+    return (
+      <section className="hub-card p-5">
+        <p className="text-xs text-gray-400 dark:text-zinc-500 italic">
+          Couldn&apos;t load this week&apos;s lines.
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="hub-card p-5">
+      <div className="mb-3 flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-zinc-100">
+            Week {book.week} Lines
+          </h2>
+          <p className="text-[11px] text-gray-400 dark:text-zinc-500 mt-0.5">
+            House odds from live projections — settled automatically after the week
+          </p>
+        </div>
+        {book.locked && (
+          <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-medium text-amber-400">
+            <FiLock className="h-3 w-3" /> Locked until Tuesday
+          </span>
+        )}
+      </div>
+
+      {book.lines.length === 0 ? (
+        <p className="text-xs text-gray-400 dark:text-zinc-500 italic">
+          {book.seasonType === "regular"
+            ? "No lines available for this week yet — check back soon."
+            : "Week 1 lines will appear once Sleeper publishes matchups and projections for the new season."}
+        </p>
+      ) : (
+        <ul className="space-y-3">
+          {book.lines.map((line) => (
+            <LineCard
+              key={line.id}
+              line={line}
+              locked={book.locked}
+              currentProfileId={currentProfileId}
+              balance={balance}
+              onPlaced={onPlaced}
+            />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 // ─── Main Page ───────────────────────────────────────────────────────────
 export default function BetsPage() {
   const params = useParams();
@@ -449,16 +1000,22 @@ export default function BetsPage() {
   const hubLeagueId = String(params?.hubLeagueId ?? "");
 
   const [loading, setLoading] = useState(true);
-  const [hubLeague, setHubLeague] = useState<{ name: string } | null>(null);
+  const [hubLeague, setHubLeague] = useState<{
+    name: string;
+    punishment?: string | null;
+  } | null>(null);
   const [isOwner, setIsOwner] = useState(false);
   const [currentProfileId, setCurrentProfileId] = useState<number | null>(null);
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [bets, setBets] = useState<Bet[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<"season" | "h2h">("season");
+  const [tab, setTab] = useState<"season" | "h2h" | "book">("season");
   const [showCreate, setShowCreate] = useState(false);
   const [settleBet, setSettleBet] = useState<Bet | null>(null);
   const [accepting, setAccepting] = useState<string | null>(null);
+  const [book, setBook] = useState<Book | null>(null);
+  const [bookLoading, setBookLoading] = useState(false);
+  const [bookFetched, setBookFetched] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!hubLeagueId) return;
@@ -499,6 +1056,37 @@ export default function BetsPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Lazy-load the book the first time the tab is opened (line generation can
+  // take a few Sleeper round-trips on the week's first visit)
+  useEffect(() => {
+    if (tab !== "book" || bookFetched || !hubLeagueId) return;
+    setBookFetched(true);
+    setBookLoading(true);
+    fetch(`/api/hub-leagues/${hubLeagueId}/lines`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setBook(d))
+      .catch(() => setBook(null))
+      .finally(() => setBookLoading(false));
+  }, [tab, bookFetched, hubLeagueId]);
+
+  function handleWagerPlaced(lineId: string, wager: LineWager) {
+    setBook((prev) =>
+      prev
+        ? {
+            ...prev,
+            lines: prev.lines.map((l) =>
+              l.id === lineId ? { ...l, wagers: [...l.wagers, wager] } : l
+            ),
+          }
+        : prev
+    );
+    // Refresh wallet
+    fetch(`/api/hub-leagues/${hubLeagueId}/wallet`)
+      .then((r) => r.json())
+      .then((d) => setWallet(d.wallet))
+      .catch(() => {});
+  }
 
   async function handleAccept(bet: Bet) {
     setAccepting(bet.id);
@@ -624,6 +1212,16 @@ export default function BetsPage() {
         />
       )}
 
+      {/* ─── League Punishment Bar ─────────────────── */}
+      <PunishmentBar
+        hubLeagueId={hubLeagueId}
+        punishment={hubLeague.punishment ?? null}
+        isOwner={isOwner}
+        onUpdated={(punishment) =>
+          setHubLeague((prev) => (prev ? { ...prev, punishment } : prev))
+        }
+      />
+
       {/* ─── Header ────────────────────────────────── */}
       <div className="mb-6">
         <div className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-gray-200 dark:border-zinc-800/70 bg-gray-50 dark:bg-black/40 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.15em] text-gray-500 dark:text-zinc-400">
@@ -670,7 +1268,7 @@ export default function BetsPage() {
       {/* ─── Tab bar + New Bet ─────────────────────── */}
       <div className="mb-4 flex items-center justify-between">
         <div className="flex gap-1">
-          {(["season", "h2h"] as const).map((t) => (
+          {(["season", "h2h", "book"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -680,19 +1278,33 @@ export default function BetsPage() {
                   : "text-gray-400 dark:text-zinc-500 hover:text-gray-600 dark:hover:text-zinc-300 border border-transparent"
               }`}
             >
-              {t === "season" ? "Season" : "H2H"}
+              {t === "season" ? "Season" : t === "h2h" ? "H2H" : "The Book"}
             </button>
           ))}
         </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-[#F4D06F]/30 bg-[#F4D06F]/5 px-3 py-1.5 text-[11px] font-medium text-[#F4D06F] hover:bg-[#F4D06F]/10 transition"
-        >
-          <FiPlus className="h-3 w-3" />
-          New Bet
-        </button>
+        {tab !== "book" && (
+          <button
+            onClick={() => setShowCreate(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[#F4D06F]/30 bg-[#F4D06F]/5 px-3 py-1.5 text-[11px] font-medium text-[#F4D06F] hover:bg-[#F4D06F]/10 transition"
+          >
+            <FiPlus className="h-3 w-3" />
+            New Bet
+          </button>
+        )}
       </div>
 
+      {tab === "book" && (
+        <BookSection
+          book={book}
+          loading={bookLoading}
+          currentProfileId={currentProfileId}
+          balance={wallet?.balance ?? null}
+          onPlaced={handleWagerPlaced}
+        />
+      )}
+
+      {tab !== "book" && (
+        <>
       {/* ─── Open Bets ─────────────────────────────── */}
       {openBets.length > 0 && (
         <section className="mb-4 hub-card p-5">
@@ -774,6 +1386,8 @@ export default function BetsPage() {
           </ul>
         )}
       </section>
+        </>
+      )}
     </>
   );
 }
