@@ -9,7 +9,12 @@ import StatsRow from "@/components/ui/StatRow";
 import Image from "next/image";
 import { LeagueHubModal } from "@/components/ui/LeagueHubModal";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { FiArrowRight } from "react-icons/fi";
+import { TOOLS } from "@/components/navbar/ToolsDropdown";
+import { COMMUNITY_LINKS } from "@/components/navbar/CommunityDropdown";
+import { getToolUsage, type ToolUsage } from "@/lib/toolUsage";
+import type { IconType } from "react-icons";
 
 type UserProfile = {
   id: number;
@@ -53,6 +58,7 @@ function HomeDashboard() {
   const [isLeagueModalOpen, setIsLeagueModalOpen] = useState(false);
   const [isLeaguesLoading, setIsLeaguesLoading] = useState(true);
   const [recentHubLeague, setRecentHubLeague] = useState<{ id: string; name: string } | null>(null);
+  const [toolUsage, setToolUsage] = useState<ToolUsage>({});
   const [hubRank, setHubRank] = useState<{ tier: string; score: number | null; seasons: number } | null>(null);
 
   const loadDashboard = useCallback(async () => {
@@ -114,7 +120,17 @@ function HomeDashboard() {
     if (raw) {
       try { setRecentHubLeague(JSON.parse(raw)); } catch {}
     }
+    setToolUsage(getToolUsage());
   }, []);
+
+  // Most-used tools first; unused tools keep the default TOOLS order.
+  // "Coming soon" entries always sort to the end.
+  const sortedTools = [...TOOLS].sort((a, b) => {
+    if (!!a.soon !== !!b.soon) return a.soon ? 1 : -1;
+    const usageA = a.href ? toolUsage[a.href] ?? 0 : 0;
+    const usageB = b.href ? toolUsage[b.href] ?? 0 : 0;
+    return usageB - usageA;
+  });
 
   const hasSleeperLinked = !!userProfile?.sleeperProfileId;
 
@@ -268,6 +284,30 @@ function HomeDashboard() {
           />
         </div>
 
+        {/* Quick tools */}
+        <div>
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-zinc-500">
+            Quick Tools
+          </p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {sortedTools.map((tool) => (
+              <QuickLinkCard key={tool.label} {...tool} />
+            ))}
+          </div>
+        </div>
+
+        {/* Community */}
+        <div>
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-zinc-500">
+            Community
+          </p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {COMMUNITY_LINKS.map((link) => (
+              <QuickLinkCard key={link.label} {...link} />
+            ))}
+          </div>
+        </div>
+
         {/* Leagues header */}
         <div className="flex flex-col gap-1">
           <div className="flex items-center justify-between gap-3">
@@ -380,6 +420,61 @@ function HomeDashboard() {
 
       </div>
     </div>
+  );
+}
+
+function QuickLinkCard({
+  href,
+  label,
+  description,
+  icon: Icon,
+  color,
+  bg,
+  soon,
+}: {
+  href: string | null;
+  label: string;
+  description: string;
+  icon: IconType;
+  color: string;
+  bg: string;
+  soon?: boolean;
+}) {
+  if (soon || !href) {
+    return (
+      <div className="flex cursor-not-allowed items-center gap-3 rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-950/70 px-4 py-3.5 opacity-50 shadow-sm dark:shadow-[0_8px_30px_rgba(0,0,0,0.4)]">
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${bg}`}>
+          <Icon className={`h-5 w-5 ${color}`} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{label}</p>
+            <span className="shrink-0 rounded-full border border-zinc-300 dark:border-zinc-700 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-zinc-500">
+              Soon
+            </span>
+          </div>
+          <p className="truncate text-[11px] text-zinc-500">{description}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      href={href}
+      className="group flex items-center gap-3 rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-950/70 px-4 py-3.5 shadow-sm dark:shadow-[0_8px_30px_rgba(0,0,0,0.4)] transition hover:border-amber-400/30 hover:bg-zinc-50 dark:hover:bg-zinc-900/60"
+    >
+      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${bg}`}>
+        <Icon className={`h-5 w-5 ${color}`} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100 group-hover:text-zinc-950 dark:group-hover:text-white">
+          {label}
+        </p>
+        <p className="truncate text-[11px] text-zinc-500">{description}</p>
+      </div>
+      <FiArrowRight className="h-4 w-4 shrink-0 text-zinc-400 dark:text-zinc-600 transition-colors group-hover:text-amber-500 dark:group-hover:text-[#F4D06F]" />
+    </Link>
   );
 }
 
