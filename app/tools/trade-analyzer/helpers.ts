@@ -45,6 +45,21 @@ export const rosterPlayerToSelectedPlayer = (
   };
 };
 
+// Waiver adjustment (FantasyCalc's formula): the side sending fewer assets is credited
+// a capped fraction of the larger side's cheapest assets' values, since end-of-roster
+// throw-ins are roughly replaceable off waivers.
+export function waiverAdjustment(smallerValues: number[], largerValues: number[], isDynasty: boolean): number {
+  const w = isDynasty
+    ? { pct: 0.6982, cap: 753, capStep: 0.23 }
+    : { pct: 0.4, cap: 1150, capStep: 100 };
+  const k = largerValues.length - smallerValues.length;
+  if (k <= 0 || smallerValues.length === 0) return 0;
+  return [...largerValues]
+    .sort((a, b) => a - b)
+    .slice(0, k)
+    .reduce((s, v, i) => s + Math.floor(Math.min(v * w.pct, w.cap + i * w.capStep)), 0);
+}
+
 export function parseStarterCounts(rosterPositions: string[]): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const pos of rosterPositions) {
