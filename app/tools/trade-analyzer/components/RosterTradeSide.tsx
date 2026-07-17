@@ -1,8 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import type { SleeperRoster, SleeperPick, PlayerInfo, ValueMap } from "../types";
 import { pickKey, pickFcId, pickToSelectedPlayer, rosterPlayerToSelectedPlayer } from "../helpers";
 import { RosterCard } from "./RosterCard";
+
+const FILTER_ORDER = ["QB", "RB", "WR", "TE", "K", "DEF"];
 
 export function RosterTradeSide({
   label, roster, picks, infoMap, valueMap, selectedIds,
@@ -19,13 +22,28 @@ export function RosterTradeSide({
   accent: "amber" | "blue";
   emptyMessage?: string;
 }) {
+  const [posFilter, setPosFilter] = useState<string | null>(null);
+
   const accentBadge = accent === "amber"
     ? "text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/10"
     : "text-blue-600 dark:text-blue-400 border-blue-500/30 bg-blue-500/10";
+  const accentFilter = accent === "amber"
+    ? "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+    : "border-blue-500/40 bg-blue-500/10 text-blue-600 dark:text-blue-400";
 
   const players = (roster?.players ?? [])
     .map((id) => rosterPlayerToSelectedPlayer(id, infoMap, valueMap))
     .sort((a, b) => b.value - a.value);
+
+  const filters = [
+    ...FILTER_ORDER.filter((pos) => players.some((p) => p.position === pos)),
+    ...(picks.length > 0 ? ["PICKS"] : []),
+  ];
+
+  const shownPlayers = posFilter && posFilter !== "PICKS"
+    ? players.filter((p) => p.position === posFilter)
+    : posFilter === "PICKS" ? [] : players;
+  const showPicks = picks.length > 0 && (posFilter === null || posFilter === "PICKS");
 
   const selectedTotal = [...(roster?.players ?? []), ...picks.map((p) => pickKey(p))]
     .filter((id) => selectedIds.has(id))
@@ -47,9 +65,33 @@ export function RosterTradeSide({
         </span>
       </div>
 
+      {roster && filters.length > 1 && (
+        <div className="flex gap-1 overflow-x-auto px-3 pt-2 pb-0.5 shrink-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <button
+            onClick={() => setPosFilter(null)}
+            className={`shrink-0 rounded-lg border px-2 py-1 text-[10px] font-semibold transition-all ${
+              posFilter === null ? accentFilter : "border-zinc-200 dark:border-zinc-800/60 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+            }`}
+          >
+            All
+          </button>
+          {filters.map((pos) => (
+            <button
+              key={pos}
+              onClick={() => setPosFilter((cur) => (cur === pos ? null : pos))}
+              className={`shrink-0 rounded-lg border px-2 py-1 text-[10px] font-semibold transition-all ${
+                posFilter === pos ? accentFilter : "border-zinc-200 dark:border-zinc-800/60 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+              }`}
+            >
+              {pos === "PICKS" ? "Picks" : pos}
+            </button>
+          ))}
+        </div>
+      )}
+
       {roster && (
-        <div className="flex flex-col gap-1 h-[500px] overflow-y-auto px-3 py-2">
-          {players.map((p) => (
+        <div className="flex flex-col gap-1 h-[340px] md:h-[500px] overflow-y-auto px-3 py-2">
+          {shownPlayers.map((p) => (
             <RosterCard
               key={p.sleeperId}
               player={p}
@@ -59,7 +101,7 @@ export function RosterTradeSide({
             />
           ))}
 
-          {picks.length > 0 && (
+          {showPicks && (
             <>
               <p className="px-1 pt-2 pb-1 text-[9px] font-semibold uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-600">
                 Picks
