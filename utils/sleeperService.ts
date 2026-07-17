@@ -67,3 +67,10 @@ export async function getLeagueDrafts(leagueId: string) {
 export async function getDraftPicks(draftId: string) {
   return sleeperRequest<any[]>(`/draft/${encodeURIComponent(draftId)}/picks`, TTL.players);
 }
+
+export async function getLeagueWinnersBracket(leagueId: string) {
+  return sleeperRequest<any[]>(
+    `/league/${encodeURIComponent(leagueId)}/winners_bracket`,
+    TTL.leagues
+  );
+}
