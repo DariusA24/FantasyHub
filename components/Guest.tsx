@@ -109,7 +109,7 @@ function Guest() {
       {/* ── Hero ─────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0 flex items-start justify-center">
-          <div className="mt-[-80px] h-[600px] w-[1000px] rounded-full bg-amber-400/10 dark:bg-[#F4D06F]/8 blur-[140px]" />
+          <div className="mt-[-80px] h-[600px] w-[1000px] bg-[radial-gradient(ellipse_at_center,rgba(251,191,36,0.12),transparent_65%)] dark:bg-[radial-gradient(ellipse_at_center,rgba(244,208,111,0.10),transparent_65%)]" />
         </div>
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.025] dark:opacity-[0.035]"
@@ -174,7 +174,7 @@ function Guest() {
                     <Link
                       key={t.title}
                       href={t.href}
-                      className="group relative rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950/70 p-4 shadow-sm dark:shadow-[0_8px_25px_rgba(0,0,0,0.5)] backdrop-blur-md transition-all hover:-translate-y-0.5 hover:border-zinc-300 dark:hover:border-zinc-700"
+                      className="group relative rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 p-4 shadow-sm dark:shadow-[0_8px_25px_rgba(0,0,0,0.5)] transition-all hover:-translate-y-0.5 hover:border-zinc-300 dark:hover:border-zinc-700"
                     >
                       <div className={`mb-2.5 inline-flex h-9 w-9 items-center justify-center rounded-xl ${t.bg}`}>
                         <Icon className={`h-4 w-4 ${t.color}`} />
@@ -216,7 +216,7 @@ function Guest() {
             return (
               <div
                 key={f.title}
-                className="rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950/70 p-5 shadow-sm dark:shadow-[0_18px_45px_rgba(0,0,0,0.75)] backdrop-blur-md transition hover:-translate-y-0.5 hover:border-zinc-300 dark:hover:border-zinc-700"
+                className="rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 p-5 shadow-sm dark:shadow-[0_18px_45px_rgba(0,0,0,0.75)] transition hover:-translate-y-0.5 hover:border-zinc-300 dark:hover:border-zinc-700"
               >
                 <div className={`mb-3 inline-flex h-9 w-9 items-center justify-center rounded-xl ${f.bg}`}>
                   <Icon className={`h-4.5 w-4.5 ${f.color}`} />
@@ -234,7 +234,7 @@ function Guest() {
         <div className="grid md:grid-cols-2 gap-4">
 
           {/* How it works */}
-          <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950/70 shadow-sm dark:shadow-[0_18px_45px_rgba(0,0,0,0.75)] backdrop-blur-md overflow-hidden">
+          <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 shadow-sm dark:shadow-[0_18px_45px_rgba(0,0,0,0.75)] overflow-hidden">
             <div className="px-6 py-5 border-b border-zinc-100 dark:border-zinc-800/60">
               <div className="inline-flex items-center gap-2 rounded-full border border-zinc-200 dark:border-zinc-800/70 bg-zinc-100/80 dark:bg-black/40 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400 mb-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-[#F4D06F] shadow-[0_0_8px_rgba(244,208,111,0.6)]" />
@@ -262,7 +262,7 @@ function Guest() {
           </div>
 
           {/* What you get */}
-          <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950/70 shadow-sm dark:shadow-[0_18px_45px_rgba(0,0,0,0.75)] backdrop-blur-md overflow-hidden">
+          <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 shadow-sm dark:shadow-[0_18px_45px_rgba(0,0,0,0.75)] overflow-hidden">
             <div className="px-6 py-5 border-b border-zinc-100 dark:border-zinc-800/60">
               <div className="inline-flex items-center gap-2 rounded-full border border-[#F4D06F]/30 bg-[#F4D06F]/5 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-[#F4D06F] mb-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-[#F4D06F] shadow-[0_0_8px_rgba(244,208,111,0.6)]" />
@@ -298,9 +298,9 @@ function Guest() {
 
       {/* ── Bottom CTA ───────────────────────────────────────────────── */}
       <section className="mx-auto max-w-6xl px-4 pb-24">
-        <div className="relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950/70 shadow-sm dark:shadow-[0_18px_45px_rgba(0,0,0,0.75)] backdrop-blur-md">
+        <div className="relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 shadow-sm dark:shadow-[0_18px_45px_rgba(0,0,0,0.75)]">
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <div className="h-[300px] w-[700px] rounded-full bg-[#F4D06F]/6 blur-[80px]" />
+            <div className="h-[300px] w-[700px] bg-[radial-gradient(ellipse_at_center,rgba(244,208,111,0.08),transparent_65%)]" />
           </div>
           <div className="relative flex flex-col md:flex-row items-center justify-between gap-6 px-8 py-10">
             <div>
