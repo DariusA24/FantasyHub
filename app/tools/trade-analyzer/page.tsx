@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { FiArrowLeft, FiX } from "react-icons/fi";
 
 import type { Settings, ValueMap, SelectedPlayer, League, SleeperRoster, SleeperPick, SleeperUser, PlayerInfo, LeagueTeam } from "./types";
-import { pickKey, pickFcId, parseStarterCounts, pickToSelectedPlayer, rosterPlayerToSelectedPlayer } from "./helpers";
+import { pickKey, pickFcId, parseStarterCounts, pickToSelectedPlayer, rosterPlayerToSelectedPlayer, waiverAdjustment } from "./helpers";
 
 import { ToggleGroup }       from "./components/ToggleGroup";
 import { LeagueDropdown }    from "./components/LeagueDropdown";
@@ -180,25 +180,10 @@ export default function TradeAnalyzerPage() {
   const aiSideA = isLeagueMode ? selectedAssets(myRosterTeam, mySelectedIds) : mySide;
   const aiSideB = isLeagueMode ? selectedAssets(opponentTeam, theirSelectedIds) : theirSide;
 
-  // Waiver adjustment (FantasyCalc's formula): the side sending fewer players is credited
-  // a capped fraction of the larger side's cheapest players' values, since end-of-roster
-  // throw-ins are roughly replaceable off waivers.
-  const waiver = settings.isDynasty
-    ? { pct: 0.6982, cap: 753, capStep: 0.23 }
-    : { pct: 0.4, cap: 1150, capStep: 100 };
-
-  const waiverAdjFor = (smaller: SelectedPlayer[], larger: SelectedPlayer[]): number => {
-    const k = larger.length - smaller.length;
-    if (k <= 0 || smaller.length === 0) return 0;
-    return larger
-      .map((p) => p.value)
-      .sort((a, b) => a - b)
-      .slice(0, k)
-      .reduce((s, v, i) => s + Math.floor(Math.min(v * waiver.pct, waiver.cap + i * waiver.capStep)), 0);
-  };
-
-  const myWaiverAdj    = waiverAdjFor(aiSideA, aiSideB);
-  const theirWaiverAdj = waiverAdjFor(aiSideB, aiSideA);
+  const sideAValues = aiSideA.map((p) => p.value);
+  const sideBValues = aiSideB.map((p) => p.value);
+  const myWaiverAdj    = waiverAdjustment(sideAValues, sideBValues, settings.isDynasty);
+  const theirWaiverAdj = waiverAdjustment(sideBValues, sideAValues, settings.isDynasty);
 
   const adjustedMy    = myTotal + myWaiverAdj;
   const adjustedTheir = theirTotal + theirWaiverAdj;
@@ -493,6 +478,7 @@ export default function TradeAnalyzerPage() {
               sleeperLeagueId={selectedLeague.latestSeason.sleeperLeagueId}
               valueMap={valueMap}
               mySleeperUserId={mySleeperUserId}
+              isDynasty={settings.isDynasty}
             />
           </div>
         )}

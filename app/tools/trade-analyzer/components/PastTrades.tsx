@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { FiChevronDown } from "react-icons/fi";
 import type { ValueMap } from "../types";
 import { POSITION_COLOR, ROUND_NAMES } from "../constants";
+import { waiverAdjustment } from "../helpers";
 
 type PastTradePlayer = { sleeperId: string; name: string; position: string | null };
 type PastTradePick = {
@@ -40,10 +41,11 @@ const INITIAL_SHOWN = 5;
 const pickLabel = (p: PastTradePick) =>
   `${p.season} ${ROUND_NAMES[p.round - 1] ?? `Rd ${p.round}`}`;
 
-export function PastTrades({ sleeperLeagueId, valueMap, mySleeperUserId }: {
+export function PastTrades({ sleeperLeagueId, valueMap, mySleeperUserId, isDynasty }: {
   sleeperLeagueId: string;
   valueMap: ValueMap;
   mySleeperUserId: string | null;
+  isDynasty: boolean;
 }) {
   const [trades, setTrades] = useState<PastTrade[]>([]);
   const [loading, setLoading] = useState(false);
@@ -143,7 +145,19 @@ export function PastTrades({ sleeperLeagueId, valueMap, mySleeperUserId }: {
 
         <div className="flex flex-col gap-3">
           {visible.shown.map((trade) => {
-            const totals = trade.teams.map(teamTotal);
+            const rawTotals = trade.teams.map(teamTotal);
+            const assetValues = trade.teams.map((team) => [
+              ...team.players.map((p) => playerValue(p.sleeperId) ?? 0),
+              ...team.picks.map((p) => pickValue(p) ?? 0),
+            ]);
+            // Same waiver adjustment as the calculator; it's defined for two-sided trades only
+            const waiverAdjs = trade.teams.length === 2
+              ? [
+                  waiverAdjustment(assetValues[0], assetValues[1], isDynasty),
+                  waiverAdjustment(assetValues[1], assetValues[0], isDynasty),
+                ]
+              : trade.teams.map(() => 0);
+            const totals = rawTotals.map((t, i) => t + waiverAdjs[i]);
             const maxTotal = Math.max(...totals);
             const sorted = [...totals].sort((a, b) => b - a);
             const gap = sorted[0] - (sorted[1] ?? 0);
@@ -193,6 +207,11 @@ export function PastTrades({ sleeperLeagueId, valueMap, mySleeperUserId }: {
                             {Math.round(totals[i]).toLocaleString()}
                           </span>
                         </div>
+                        {waiverAdjs[i] > 0 && (
+                          <p className="-mt-1 mb-1.5 text-right text-[9px] text-emerald-600/80 dark:text-emerald-500/80">
+                            incl. +{waiverAdjs[i].toLocaleString()} waiver adj
+                          </p>
+                        )}
                         <div className="flex flex-col gap-1">
                           {team.players.map((p) => {
                             const val = playerValue(p.sleeperId);
@@ -282,7 +301,7 @@ export function PastTrades({ sleeperLeagueId, valueMap, mySleeperUserId }: {
 
         {!loading && !error && visible.filtered.length > 0 && (
           <p className="mt-2 px-1 text-[9px] text-zinc-500 dark:text-zinc-600">
-            Verdicts use today’s FantasyCalc values, so they show who’s winning each trade in hindsight — not how it looked on trade day. Picks whose draft already happened are scored as the player selected with them (“2026 2nd → Player”); “re-traded” means the pick changed hands again after this trade. Assets marked “—” have no current market value.
+            Verdicts use today’s FantasyCalc values plus the calculator’s waiver adjustment, so they show who’s winning each trade in hindsight — not how it looked on trade day. Picks whose draft already happened are scored as the player selected with them (“2026 2nd → Player”); “re-traded” means the pick changed hands again after this trade. Assets marked “—” have no current market value.
           </p>
         )}
       </div>
