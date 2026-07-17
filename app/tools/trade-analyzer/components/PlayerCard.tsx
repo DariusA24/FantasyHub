@@ -72,7 +72,7 @@ export function PlayerCard({ player, isDynasty, onRemove }: {
         </div>
         <button
           onClick={onRemove}
-          className="opacity-0 group-hover:opacity-100 h-6 w-6 flex items-center justify-center rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800/80 text-zinc-500 hover:text-red-500 dark:hover:text-red-400 transition-all"
+          className="opacity-100 md:opacity-0 md:group-hover:opacity-100 h-7 w-7 md:h-6 md:w-6 flex items-center justify-center rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800/80 text-zinc-500 hover:text-red-500 dark:hover:text-red-400 transition-all"
         >
           <FiX className="h-3.5 w-3.5" />
         </button>

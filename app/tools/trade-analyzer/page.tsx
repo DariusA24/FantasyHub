@@ -6,7 +6,7 @@ import { FiArrowLeft, FiX } from "react-icons/fi";
 
 import type { Settings, ValueMap, SelectedPlayer, League, SleeperRoster, SleeperPick, SleeperUser, PlayerInfo, LeagueTeam } from "./types";
 import { BENCH_SPOT_VALUE } from "./constants";
-import { pickKey, pickFcId, parseStarterCounts } from "./helpers";
+import { pickKey, pickFcId, parseStarterCounts, pickToSelectedPlayer, rosterPlayerToSelectedPlayer } from "./helpers";
 
 import { ToggleGroup }       from "./components/ToggleGroup";
 import { LeagueDropdown }    from "./components/LeagueDropdown";
@@ -14,6 +14,7 @@ import { TeamPicker }        from "./components/TeamPicker";
 import { RosterTradeSide }   from "./components/RosterTradeSide";
 import { FreeTradeSide }     from "./components/FreeTradeSide";
 import { ResultBanner }      from "./components/ResultBanner";
+import { TradeBalancer }     from "./components/TradeBalancer";
 import { TeamNeeds }         from "./components/TeamNeeds";
 import { AIOverview }        from "./components/AIOverview";
 
@@ -169,6 +170,13 @@ export default function TradeAnalyzerPage() {
   const myBenchBonus    = Math.max(0, myCount - theirCount) * BENCH_SPOT_VALUE;
   const theirBenchBonus = Math.max(0, theirCount - myCount) * BENCH_SPOT_VALUE;
 
+  const adjustedMy    = myTotal + myBenchBonus;
+  const adjustedTheir = theirTotal + theirBenchBonus;
+  const tradeDiff = adjustedTheir - adjustedMy;
+  const tradeGap  = Math.abs(tradeDiff);
+  const tradeBase = Math.max(adjustedMy, adjustedTheir);
+  const tradePct  = tradeBase > 0 ? (tradeGap / tradeBase) * 100 : 0;
+
   const allSelected = [...mySide.map((p) => p.sleeperId), ...theirSide.map((p) => p.sleeperId)];
 
   const toggleId = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, id: string) =>
@@ -196,14 +204,93 @@ export default function TradeAnalyzerPage() {
     ? mySelectedIds.size > 0 || theirSelectedIds.size > 0
     : mySide.length > 0 || theirSide.length > 0;
 
+  // League-mode: selected assets (players + picks) as SelectedPlayer lists
+  const selectedAssets = (team: LeagueTeam | null | undefined, ids: Set<string>): SelectedPlayer[] => {
+    if (!team) return [];
+    const players = (team.roster.players ?? [])
+      .filter((id) => ids.has(id))
+      .map((id) => rosterPlayerToSelectedPlayer(id, infoMap, valueMap));
+    const picks = (pickOwnership[team.roster.roster_id] ?? [])
+      .filter((pk) => ids.has(pickKey(pk)))
+      .map((pk) => ({ ...pickToSelectedPlayer(pk, valueMap), sleeperId: pickKey(pk) }));
+    return [...players, ...picks];
+  };
+
+  const aiSideA = isLeagueMode ? selectedAssets(myRosterTeam, mySelectedIds) : mySide;
+  const aiSideB = isLeagueMode ? selectedAssets(opponentTeam, theirSelectedIds) : theirSide;
+
+  // Balance-the-trade suggestions: the side getting the better end adds an asset
+  const balanceCandidates = (pool: SelectedPlayer[]): SelectedPlayer[] =>
+    pool
+      .filter((p) => p.value > 0 && p.value >= tradeGap * 0.4 && p.value <= tradeGap * 1.5)
+      .sort((a, b) => Math.abs(a.value - tradeGap) - Math.abs(b.value - tradeGap))
+      .slice(0, 3);
+
+  let balancer: { sideLabel: string; candidates: SelectedPlayer[]; onAdd: (p: SelectedPlayer) => void } | null = null;
+  if (myTotal > 0 && theirTotal > 0 && tradePct >= 5) {
+    const winnerIsMe = tradeDiff > 0; // I receive more value, so my side adds
+    if (isLeagueMode) {
+      const team   = winnerIsMe ? myRosterTeam : opponentTeam;
+      const selIds = winnerIsMe ? mySelectedIds : theirSelectedIds;
+      if (team) {
+        const pool = [
+          ...(team.roster.players ?? [])
+            .filter((id) => !selIds.has(id))
+            .map((id) => rosterPlayerToSelectedPlayer(id, infoMap, valueMap)),
+          ...(pickOwnership[team.roster.roster_id] ?? [])
+            .filter((pk) => !selIds.has(pickKey(pk)))
+            .map((pk) => ({ ...pickToSelectedPlayer(pk, valueMap), sleeperId: pickKey(pk) })),
+        ];
+        balancer = {
+          sideLabel: winnerIsMe ? "your side" : "their side",
+          candidates: balanceCandidates(pool),
+          onAdd: (p) => toggleId(winnerIsMe ? setMySelectedIds : setTheirSelectedIds, p.sleeperId),
+        };
+      }
+    } else {
+      const pool = Object.entries(valueMap)
+        .filter(([id]) => !allSelected.includes(id))
+        .map(([id, v]) => ({
+          sleeperId: id, name: v.name, position: v.position, team: v.team,
+          value: v.value, trend: v.trend, redraftValue: v.redraftValue, age: v.age, tier: v.tier,
+        }));
+      balancer = {
+        sideLabel: winnerIsMe ? "your side" : "their side",
+        candidates: balanceCandidates(pool),
+        onAdd: winnerIsMe
+          ? (p) => setMySide((prev) => [...prev, p])
+          : (p) => setTheirSide((prev) => [...prev, p]),
+      };
+    }
+  }
+
+  const clearButton = hasSelections && (
+    <button
+      onClick={handleClear}
+      className="flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-semibold text-zinc-500 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all"
+    >
+      <FiX className="h-3 w-3" />
+      Clear
+    </button>
+  );
+
+  const vsDivider = (
+    <div className="flex md:flex-col items-center justify-center gap-2 md:pt-8 shrink-0">
+      <div className="h-8 w-8 rounded-full border border-zinc-200 dark:border-zinc-800/60 bg-zinc-100 dark:bg-zinc-900/60 flex items-center justify-center text-zinc-500 text-xs font-bold">
+        VS
+      </div>
+      {clearButton}
+    </div>
+  );
+
   // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-[#05060a]">
-      <div className="mx-auto max-w-5xl px-4 pb-24 pt-10">
+      <div className="mx-auto max-w-5xl px-4 pb-28 md:pb-24 pt-6 md:pt-10">
 
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-6 md:mb-8">
           <button
             onClick={() => router.back()}
             className="mb-4 inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
@@ -215,7 +302,7 @@ export default function TradeAnalyzerPage() {
             <span className="h-1.5 w-1.5 rounded-full bg-amber-500 dark:bg-[#F4D06F] shadow-[0_0_8px_rgba(244,208,111,0.6)]" />
             Tools
           </div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50">Trade Analyzer</h1>
+          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50">Trade Analyzer</h1>
           <p className="mt-1 text-sm text-zinc-500">Compare player values and evaluate any trade.</p>
           <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-600">
             Dynasty values powered by{" "}
@@ -227,7 +314,7 @@ export default function TradeAnalyzerPage() {
 
         {/* Settings + League row */}
         <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/30 p-4 mb-6">
-          <div className="flex flex-wrap items-end gap-4">
+          <div className="flex flex-wrap items-end gap-3 md:gap-4">
             <ToggleGroup
               label="Format"
               options={[{ label: "Dynasty", value: true }, { label: "Redraft", value: false }]}
@@ -246,12 +333,12 @@ export default function TradeAnalyzerPage() {
               value={settings.ppr}
               onChange={(v) => updateSetting("ppr", v as 0 | 0.5 | 1)}
             />
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1.5 w-full sm:w-auto">
               <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">League</span>
               <LeagueDropdown leagues={leagues} selected={selectedLeague} onSelect={setSelectedLeague} />
             </div>
             {isLeagueMode && (
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-1.5 w-full sm:w-auto sm:min-w-[200px]">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Opponent</span>
                 <TeamPicker
                   teams={otherTeams}
@@ -283,46 +370,25 @@ export default function TradeAnalyzerPage() {
           />
         </div>
 
+        {/* Balance suggestions */}
+        {balancer && balancer.candidates.length > 0 && (
+          <div className="mb-4">
+            <TradeBalancer
+              gap={tradeGap}
+              sideLabel={balancer.sideLabel}
+              candidates={balancer.candidates}
+              onAdd={balancer.onAdd}
+            />
+          </div>
+        )}
+
         {/* AI Overview */}
-        {(() => {
-          if (isLeagueMode) {
-            const toSelectedPlayers = (roster: SleeperRoster | null | undefined, selectedIds: Set<string>): SelectedPlayer[] => {
-              if (!roster) return [];
-              return (roster.players ?? [])
-                .filter((id) => selectedIds.has(id))
-                .map((id) => {
-                  const info = infoMap[id];
-                  const val  = valueMap[id];
-                  return {
-                    sleeperId: id,
-                    name: info?.full_name ?? id,
-                    position: info?.position ?? "",
-                    team: info?.team ?? "",
-                    value: val?.value ?? 0,
-                    trend: val?.trend ?? 0,
-                    redraftValue: val?.redraftValue ?? 0,
-                    age: val?.age ?? null,
-                    tier: val?.tier ?? null,
-                  };
-                });
-            };
-            const aiSideA = toSelectedPlayers(myRosterTeam?.roster, mySelectedIds);
-            const aiSideB = toSelectedPlayers(opponentTeam?.roster, theirSelectedIds);
-            return (
-              <div className="mb-4">
-                <AIOverview sideA={aiSideA} sideB={aiSideB} isDynasty={settings.isDynasty} />
-              </div>
-            );
-          }
-          return (
-            <div className="mb-4">
-              <AIOverview sideA={mySide} sideB={theirSide} isDynasty={settings.isDynasty} />
-            </div>
-          );
-        })()}
+        <div className="mb-4">
+          <AIOverview sideA={aiSideA} sideB={aiSideB} isDynasty={settings.isDynasty} numQbs={settings.numQbs} ppr={settings.ppr} />
+        </div>
 
         {/* Trade sides */}
-        <div className="flex gap-4 items-start">
+        <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-start">
           {isLeagueMode ? (
             <>
               <RosterTradeSide
@@ -337,22 +403,7 @@ export default function TradeAnalyzerPage() {
                 accent="amber"
                 emptyMessage="Loading your roster…"
               />
-
-              <div className="flex flex-col items-center gap-2 pt-8 shrink-0">
-                <div className="h-8 w-8 rounded-full border border-zinc-200 dark:border-zinc-800/60 bg-zinc-100 dark:bg-zinc-900/60 flex items-center justify-center text-zinc-500 text-xs font-bold">
-                  VS
-                </div>
-                {hasSelections && (
-                  <button
-                    onClick={handleClear}
-                    className="flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-semibold text-zinc-500 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all"
-                  >
-                    <FiX className="h-3 w-3" />
-                    Clear
-                  </button>
-                )}
-              </div>
-
+              {vsDivider}
               <RosterTradeSide
                 label="Their Team"
                 roster={opponentTeam?.roster ?? null}
@@ -380,22 +431,7 @@ export default function TradeAnalyzerPage() {
                 onRemove={(id) => setMySide((prev) => prev.filter((p) => p.sleeperId !== id))}
                 accent="amber"
               />
-
-              <div className="flex flex-col items-center gap-2 pt-8 shrink-0">
-                <div className="h-8 w-8 rounded-full border border-zinc-200 dark:border-zinc-800/60 bg-zinc-100 dark:bg-zinc-900/60 flex items-center justify-center text-zinc-500 text-xs font-bold">
-                  VS
-                </div>
-                {hasSelections && (
-                  <button
-                    onClick={handleClear}
-                    className="flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-semibold text-zinc-500 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all"
-                  >
-                    <FiX className="h-3 w-3" />
-                    Clear
-                  </button>
-                )}
-              </div>
-
+              {vsDivider}
               <FreeTradeSide
                 label="Their Team"
                 players={theirSide}
@@ -414,7 +450,7 @@ export default function TradeAnalyzerPage() {
 
         {/* Team Needs — league mode only */}
         {isLeagueMode && (myRosterTeam || opponentTeam) && (
-          <div className="mt-6 flex gap-4 items-start">
+          <div className="mt-6 flex flex-col md:flex-row gap-4 items-stretch md:items-start">
             <TeamNeeds
               label="My Team"
               roster={myRosterTeam?.roster ?? null}
@@ -423,7 +459,7 @@ export default function TradeAnalyzerPage() {
               starterCounts={starterCounts}
               accent="amber"
             />
-            <div className="w-12 shrink-0" />
+            <div className="hidden md:block w-12 shrink-0" />
             <TeamNeeds
               label="Their Team"
               roster={opponentTeam?.roster ?? null}
@@ -436,6 +472,33 @@ export default function TradeAnalyzerPage() {
         )}
 
       </div>
+
+      {/* Sticky mobile summary bar */}
+      {hasSelections && (myTotal > 0 || theirTotal > 0) && (
+        <div className="fixed inset-x-0 bottom-0 z-40 md:hidden border-t border-zinc-200 dark:border-zinc-800/80 bg-white/95 dark:bg-[#0a0c14]/95 backdrop-blur-xl px-4 py-2.5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-zinc-500">You give</p>
+              <p className="text-sm font-bold text-amber-600 dark:text-amber-400">{adjustedMy.toLocaleString()}</p>
+            </div>
+            <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-bold ${
+              myTotal === 0 || theirTotal === 0
+                ? "text-zinc-500 border-zinc-300 dark:border-zinc-700/60 bg-zinc-100 dark:bg-zinc-800/40"
+                : tradePct < 5
+                  ? "text-zinc-500 dark:text-zinc-400 border-zinc-300 dark:border-zinc-700/60 bg-zinc-100 dark:bg-zinc-800/40"
+                  : tradeDiff > 0
+                    ? "text-emerald-500 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10"
+                    : "text-red-500 dark:text-red-400 border-red-500/30 bg-red-500/10"
+            }`}>
+              {myTotal === 0 || theirTotal === 0 ? "…" : tradePct < 5 ? "Even" : tradeDiff > 0 ? `+${tradeGap.toLocaleString()}` : `−${tradeGap.toLocaleString()}`}
+            </span>
+            <div className="min-w-0 text-right">
+              <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-zinc-500">You get</p>
+              <p className="text-sm font-bold text-blue-600 dark:text-blue-400">{adjustedTheir.toLocaleString()}</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -24,7 +24,7 @@ export function LeagueDropdown({ leagues, selected, onSelect }: {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 rounded-xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/60 px-3 py-2 text-xs text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors min-w-[200px]"
+        className="w-full flex items-center gap-2 rounded-xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/60 px-3 py-2 text-xs text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors sm:min-w-[200px]"
       >
         <span className="flex-1 text-left truncate">
           {selected ? selected.name : "All players (no league)"}
@@ -33,7 +33,7 @@ export function LeagueDropdown({ leagues, selected, onSelect }: {
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full mt-1.5 w-64 rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-[#0a0c14]/95 backdrop-blur-xl shadow-xl dark:shadow-2xl dark:shadow-black/50 p-1.5 z-50">
+        <div className="absolute left-0 top-full mt-1.5 w-full sm:w-64 rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-[#0a0c14]/95 backdrop-blur-xl shadow-xl dark:shadow-2xl dark:shadow-black/50 p-1.5 z-50">
           <button
             onMouseDown={() => { onSelect(null); setOpen(false); }}
             className="w-full text-left rounded-xl px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors"
