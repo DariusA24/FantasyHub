@@ -16,6 +16,7 @@ import { ResultBanner }      from "./components/ResultBanner";
 import { TradeBalancer }     from "./components/TradeBalancer";
 import { TeamNeeds }         from "./components/TeamNeeds";
 import { AIOverview }        from "./components/AIOverview";
+import { PastTrades }        from "./components/PastTrades";
 
 export default function TradeAnalyzerPage() {
   const router = useRouter();
@@ -481,6 +482,17 @@ export default function TradeAnalyzerPage() {
               valueMap={valueMap}
               starterCounts={starterCounts}
               accent="blue"
+            />
+          </div>
+        )}
+
+        {/* Past trades — league mode only */}
+        {selectedLeague?.latestSeason?.sleeperLeagueId && (
+          <div className="mt-6">
+            <PastTrades
+              sleeperLeagueId={selectedLeague.latestSeason.sleeperLeagueId}
+              valueMap={valueMap}
+              mySleeperUserId={mySleeperUserId}
             />
           </div>
         )}
