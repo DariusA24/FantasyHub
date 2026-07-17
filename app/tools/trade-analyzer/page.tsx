@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { FiArrowLeft, FiX } from "react-icons/fi";
 
 import type { Settings, ValueMap, SelectedPlayer, League, SleeperRoster, SleeperPick, SleeperUser, PlayerInfo, LeagueTeam } from "./types";
-import { BENCH_SPOT_VALUE } from "./constants";
 import { pickKey, pickFcId, parseStarterCounts, pickToSelectedPlayer, rosterPlayerToSelectedPlayer } from "./helpers";
 
 import { ToggleGroup }       from "./components/ToggleGroup";
@@ -165,13 +164,43 @@ export default function TradeAnalyzerPage() {
   const myTotal    = isLeagueMode ? calcTotal(myRosterTeam?.roster, mySelectedIds) : mySide.reduce((s, p) => s + p.value, 0);
   const theirTotal = isLeagueMode ? calcTotal(opponentTeam?.roster, theirSelectedIds) : theirSide.reduce((s, p) => s + p.value, 0);
 
-  const myCount    = isLeagueMode ? mySelectedIds.size : mySide.length;
-  const theirCount = isLeagueMode ? theirSelectedIds.size : theirSide.length;
-  const myBenchBonus    = Math.max(0, myCount - theirCount) * BENCH_SPOT_VALUE;
-  const theirBenchBonus = Math.max(0, theirCount - myCount) * BENCH_SPOT_VALUE;
+  // League-mode: selected assets (players + picks) as SelectedPlayer lists
+  const selectedAssets = (team: LeagueTeam | null | undefined, ids: Set<string>): SelectedPlayer[] => {
+    if (!team) return [];
+    const players = (team.roster.players ?? [])
+      .filter((id) => ids.has(id))
+      .map((id) => rosterPlayerToSelectedPlayer(id, infoMap, valueMap));
+    const picks = (pickOwnership[team.roster.roster_id] ?? [])
+      .filter((pk) => ids.has(pickKey(pk)))
+      .map((pk) => ({ ...pickToSelectedPlayer(pk, valueMap), sleeperId: pickKey(pk) }));
+    return [...players, ...picks];
+  };
 
-  const adjustedMy    = myTotal + myBenchBonus;
-  const adjustedTheir = theirTotal + theirBenchBonus;
+  const aiSideA = isLeagueMode ? selectedAssets(myRosterTeam, mySelectedIds) : mySide;
+  const aiSideB = isLeagueMode ? selectedAssets(opponentTeam, theirSelectedIds) : theirSide;
+
+  // Waiver adjustment (FantasyCalc's formula): the side sending fewer players is credited
+  // a capped fraction of the larger side's cheapest players' values, since end-of-roster
+  // throw-ins are roughly replaceable off waivers.
+  const waiver = settings.isDynasty
+    ? { pct: 0.6982, cap: 753, capStep: 0.23 }
+    : { pct: 0.4, cap: 1150, capStep: 100 };
+
+  const waiverAdjFor = (smaller: SelectedPlayer[], larger: SelectedPlayer[]): number => {
+    const k = larger.length - smaller.length;
+    if (k <= 0 || smaller.length === 0) return 0;
+    return larger
+      .map((p) => p.value)
+      .sort((a, b) => a - b)
+      .slice(0, k)
+      .reduce((s, v, i) => s + Math.floor(Math.min(v * waiver.pct, waiver.cap + i * waiver.capStep)), 0);
+  };
+
+  const myWaiverAdj    = waiverAdjFor(aiSideA, aiSideB);
+  const theirWaiverAdj = waiverAdjFor(aiSideB, aiSideA);
+
+  const adjustedMy    = myTotal + myWaiverAdj;
+  const adjustedTheir = theirTotal + theirWaiverAdj;
   const tradeDiff = adjustedTheir - adjustedMy;
   const tradeGap  = Math.abs(tradeDiff);
   const tradeBase = Math.max(adjustedMy, adjustedTheir);
@@ -203,21 +232,6 @@ export default function TradeAnalyzerPage() {
   const hasSelections = isLeagueMode
     ? mySelectedIds.size > 0 || theirSelectedIds.size > 0
     : mySide.length > 0 || theirSide.length > 0;
-
-  // League-mode: selected assets (players + picks) as SelectedPlayer lists
-  const selectedAssets = (team: LeagueTeam | null | undefined, ids: Set<string>): SelectedPlayer[] => {
-    if (!team) return [];
-    const players = (team.roster.players ?? [])
-      .filter((id) => ids.has(id))
-      .map((id) => rosterPlayerToSelectedPlayer(id, infoMap, valueMap));
-    const picks = (pickOwnership[team.roster.roster_id] ?? [])
-      .filter((pk) => ids.has(pickKey(pk)))
-      .map((pk) => ({ ...pickToSelectedPlayer(pk, valueMap), sleeperId: pickKey(pk) }));
-    return [...players, ...picks];
-  };
-
-  const aiSideA = isLeagueMode ? selectedAssets(myRosterTeam, mySelectedIds) : mySide;
-  const aiSideB = isLeagueMode ? selectedAssets(opponentTeam, theirSelectedIds) : theirSide;
 
   // Balance-the-trade suggestions: the side getting the better end adds an asset
   const balanceCandidates = (pool: SelectedPlayer[]): SelectedPlayer[] =>
@@ -366,7 +380,7 @@ export default function TradeAnalyzerPage() {
         <div className="mb-4">
           <ResultBanner
             myTotal={myTotal} theirTotal={theirTotal}
-            myBenchBonus={myBenchBonus} theirBenchBonus={theirBenchBonus}
+            myWaiverAdj={myWaiverAdj} theirWaiverAdj={theirWaiverAdj}
           />
         </div>
 
@@ -384,7 +398,7 @@ export default function TradeAnalyzerPage() {
 
         {/* AI Overview */}
         <div className="mb-4">
-          <AIOverview sideA={aiSideA} sideB={aiSideB} isDynasty={settings.isDynasty} numQbs={settings.numQbs} ppr={settings.ppr} />
+          <AIOverview sideA={aiSideA} sideB={aiSideB} isDynasty={settings.isDynasty} numQbs={settings.numQbs} ppr={settings.ppr} waiverA={myWaiverAdj} waiverB={theirWaiverAdj} />
         </div>
 
         {/* Trade sides */}
@@ -423,7 +437,7 @@ export default function TradeAnalyzerPage() {
                 label="My Team"
                 players={mySide}
                 rawTotal={mySide.reduce((s, p) => s + p.value, 0)}
-                benchBonus={myBenchBonus}
+                waiverAdj={myWaiverAdj}
                 isDynasty={settings.isDynasty}
                 valueMap={valueMap}
                 excluded={allSelected}
@@ -436,7 +450,7 @@ export default function TradeAnalyzerPage() {
                 label="Their Team"
                 players={theirSide}
                 rawTotal={theirSide.reduce((s, p) => s + p.value, 0)}
-                benchBonus={theirBenchBonus}
+                waiverAdj={theirWaiverAdj}
                 isDynasty={settings.isDynasty}
                 valueMap={valueMap}
                 excluded={allSelected}

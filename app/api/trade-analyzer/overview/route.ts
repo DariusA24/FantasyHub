@@ -15,12 +15,14 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export async function POST(req: NextRequest) {
   try {
-    const { sideA, sideB, isDynasty, numQbs, ppr } = (await req.json()) as {
+    const { sideA, sideB, isDynasty, numQbs, ppr, waiverA, waiverB } = (await req.json()) as {
       sideA: TradePlayer[];
       sideB: TradePlayer[];
       isDynasty: boolean;
       numQbs?: 1 | 2;
       ppr?: 0 | 0.5 | 1;
+      waiverA?: number;
+      waiverB?: number;
     };
 
     if (!sideA?.length || !sideB?.length) {
@@ -43,11 +45,17 @@ export async function POST(req: NextRequest) {
 
     const formatSide = (players: TradePlayer[]) => players.map(formatPlayer).join("\n");
 
-    const totalA = sideA.reduce((s, p) => s + p.value, 0);
-    const totalB = sideB.reduce((s, p) => s + p.value, 0);
+    const totalA = sideA.reduce((s, p) => s + p.value, 0) + (waiverA ?? 0);
+    const totalB = sideB.reduce((s, p) => s + p.value, 0) + (waiverB ?? 0);
     const gap    = Math.abs(totalA - totalB);
     const gapPct = Math.max(totalA, totalB) > 0 ? Math.round((gap / Math.max(totalA, totalB)) * 100) : 0;
     const richer = totalA > totalB ? "Side A" : "Side B";
+
+    const waiverNote = waiverA
+      ? `\nA waiver adjustment of +${waiverA.toLocaleString()} is included in Side A's total: Side A sends fewer players, so the team receiving them refills its open roster spots from waivers.`
+      : waiverB
+        ? `\nA waiver adjustment of +${waiverB.toLocaleString()} is included in Side B's total: Side B sends fewer players, so the team receiving them refills its open roster spots from waivers.`
+        : "";
 
     const prompt = `You are an expert fantasy football trade analyst. Evaluate this ${format} trade.
 
@@ -62,7 +70,7 @@ Side B gives up:
 ${formatSide(sideB)}
 Total: ${totalB.toLocaleString()}
 
-Raw value gap: ${gap.toLocaleString()} (${gapPct}%), ${richer} sends more raw value.
+Value gap: ${gap.toLocaleString()} (${gapPct}%), ${richer} sends more value.${waiverNote}
 
 Look beyond the raw totals:
 - Consolidation premium: in an uneven-numbered trade (e.g. 2-for-1), the side getting the single best player often wins even at a small raw-value deficit, because starting-lineup spots are finite.

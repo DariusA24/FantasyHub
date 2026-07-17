@@ -16,8 +16,6 @@ export const TIER_COLOR: Record<number, string> = {
   5: "text-zinc-500 dark:text-zinc-600 bg-zinc-100 dark:bg-zinc-900/50 border-zinc-200 dark:border-zinc-800/40",
 };
 
-export const BENCH_SPOT_VALUE = 425;
-
 export const ROUND_NAMES = ["1st", "2nd", "3rd", "4th", "5th"];
 
 export const KEY_POSITIONS = ["QB", "RB", "WR", "TE"];

@@ -1,15 +1,15 @@
 "use client";
 
-export function ResultBanner({ myTotal, theirTotal, myBenchBonus, theirBenchBonus }: {
+export function ResultBanner({ myTotal, theirTotal, myWaiverAdj, theirWaiverAdj }: {
   myTotal: number;
   theirTotal: number;
-  myBenchBonus: number;
-  theirBenchBonus: number;
+  myWaiverAdj: number;
+  theirWaiverAdj: number;
 }) {
   if (myTotal === 0 && theirTotal === 0) return null;
 
-  const adjustedMy    = myTotal + myBenchBonus;
-  const adjustedTheir = theirTotal + theirBenchBonus;
+  const adjustedMy    = myTotal + myWaiverAdj;
+  const adjustedTheir = theirTotal + theirWaiverAdj;
   const diff = adjustedTheir - adjustedMy;
   const gap  = Math.abs(diff);
   const base = Math.max(adjustedMy, adjustedTheir);
@@ -17,8 +17,8 @@ export function ResultBanner({ myTotal, theirTotal, myBenchBonus, theirBenchBonu
   const total = adjustedMy + adjustedTheir;
   const giveWidth = total > 0 ? Math.max(4, Math.min(96, (adjustedMy / total) * 100)) : 50;
 
-  const bonusSide = myBenchBonus > 0 ? "your side" : theirBenchBonus > 0 ? "their side" : null;
-  const bonusAmt  = myBenchBonus || theirBenchBonus;
+  const adjSide = myWaiverAdj > 0 ? "your side" : theirWaiverAdj > 0 ? "their side" : null;
+  const adjAmt  = myWaiverAdj || theirWaiverAdj;
 
   const oneSided = myTotal === 0 || theirTotal === 0;
 
@@ -69,9 +69,9 @@ export function ResultBanner({ myTotal, theirTotal, myBenchBonus, theirBenchBonu
         </div>
       )}
 
-      {bonusSide && (
+      {adjSide && (
         <p className="mt-1.5 text-center text-[10px] text-zinc-500">
-          Includes +{bonusAmt.toLocaleString()} roster-spot bonus ({bonusSide} sending more players)
+          Includes a +{adjAmt.toLocaleString()} waiver adjustment on {adjSide} — the team sending more players refills its open roster spots from waivers
         </p>
       )}
     </div>

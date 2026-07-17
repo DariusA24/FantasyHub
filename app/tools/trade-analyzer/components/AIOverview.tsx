@@ -9,9 +9,11 @@ type Props = {
   isDynasty: boolean;
   numQbs: 1 | 2;
   ppr: 0 | 0.5 | 1;
+  waiverA: number;
+  waiverB: number;
 };
 
-export function AIOverview({ sideA, sideB, isDynasty, numQbs, ppr }: Props) {
+export function AIOverview({ sideA, sideB, isDynasty, numQbs, ppr, waiverA, waiverB }: Props) {
   const [overview, setOverview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +34,8 @@ export function AIOverview({ sideA, sideB, isDynasty, numQbs, ppr }: Props) {
           isDynasty,
           numQbs,
           ppr,
+          waiverA,
+          waiverB,
         }),
       });
       const data = await res.json();
