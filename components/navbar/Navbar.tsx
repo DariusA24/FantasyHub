@@ -17,7 +17,7 @@ function NavBar() {
   return (
     <nav className="sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2 text-sm font-medium">
-        <div className="flex items-center justify-between h-14 sm:h-16 rounded-2xl border border-zinc-200 dark:border-amber-100/10 bg-white/95 dark:bg-neutral-900/80 backdrop-blur-xl shadow-sm dark:shadow-lg dark:shadow-black/20 px-3 sm:px-4 md:px-6">
+        <div className="flex items-center justify-between h-14 sm:h-16 rounded-2xl border border-zinc-200 dark:border-amber-100/10 bg-white dark:bg-neutral-900 md:bg-white/95 md:dark:bg-neutral-900/80 md:backdrop-blur-xl shadow-sm dark:shadow-lg dark:shadow-black/20 px-3 sm:px-4 md:px-6">
           {/* Left: Logo */}
           <div className="flex items-center gap-3">
             <Link href="/" className="flex items-center gap-2 flex-shrink-0">
