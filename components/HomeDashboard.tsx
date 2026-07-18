@@ -275,8 +275,11 @@ function HomeDashboard() {
           </div>
         )}
 
-        {/* Stats row card */}
-        <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950/70 p-4 shadow-sm dark:shadow-[0_18px_45px_rgba(0,0,0,0.75)]">
+        {/* Stats row */}
+        <div>
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-zinc-500">
+            At a Glance
+          </p>
           <StatsRow
             leaguesJoinedCount={leaguesJoinedCount}
             winRate={winRate}

@@ -231,7 +231,7 @@ function Guest() {
 
       {/* ── How it works + What you get (side by side) ───────────────── */}
       <section className="mx-auto max-w-6xl px-4 pb-16">
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
           {/* How it works */}
           <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-950 shadow-sm dark:shadow-[0_18px_45px_rgba(0,0,0,0.75)] overflow-hidden">

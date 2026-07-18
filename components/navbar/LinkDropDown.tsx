@@ -1,7 +1,6 @@
 'use client';
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../ui/dropdown-menu';
-import { LuAlignLeft } from 'react-icons/lu';
 import Link from 'next/link';
 import UserIcon from './UserIcon';
 import { SignedIn, SignedOut, SignInButton, SignOutButton, SignUpButton } from '@clerk/nextjs';
@@ -10,8 +9,10 @@ function LinkDropDown() {
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <button className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 border border-zinc-200 dark:border-amber-100/10 bg-white/80 dark:bg-neutral-800/60 hover:bg-amber-500/10 hover:border-amber-500/30 dark:hover:border-amber-500/40 transition-all duration-150 outline-none">
-                    <LuAlignLeft className="w-4 h-4 text-zinc-600 dark:text-amber-50/80" />
+                <button
+                    aria-label="Open profile menu"
+                    className="inline-flex items-center justify-center rounded-full p-1 border border-zinc-200 dark:border-amber-100/10 bg-white/80 dark:bg-neutral-800/60 hover:bg-amber-500/10 hover:border-amber-500/30 dark:hover:border-amber-500/40 transition-all duration-150 outline-none"
+                >
                     <UserIcon />
                 </button>
             </DropdownMenuTrigger>

@@ -325,7 +325,7 @@ export default function TrophyRoomPage() {
 
   return (
     <div className="min-h-screen bg-zinc-100 dark:bg-zinc-950 dark:[background:radial-gradient(ellipse_at_50%_0%,#0f0d18_0%,#06050d_60%,#020208_100%)]">
-      <div className="mx-auto max-w-5xl px-4 pb-24 pt-6 text-zinc-800 dark:text-zinc-200">
+      <div className="mx-auto max-w-6xl px-4 pb-24 pt-6 text-zinc-800 dark:text-zinc-200">
         <LeagueNav />
 
         {/* Header */}

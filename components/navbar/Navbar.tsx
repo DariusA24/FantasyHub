@@ -52,8 +52,8 @@ function NavBar() {
               </div>
               {/* Dark mode + profile */}
               <div className="flex items-center gap-2 sm:gap-3 md:pl-3 md:border-l border-zinc-200 dark:border-amber-100/10">
-                <DarkMode />
                 <LinkDropDown />
+                <DarkMode />
               </div>
               <div className="md:hidden">
                 <MobileMenu />

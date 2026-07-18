@@ -9,30 +9,22 @@ export async function GET(_req: NextRequest, ctx: RouteContext) {
   try {
     const { hubLeagueId } = await ctx.params;
 
+    // Champions are public display data (shown on the public league trophy
+    // room), so guests can read them; isOwner still gates editing in the UI.
     const user = await getAuthUser();
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const profile = await prisma.profile.findUnique({
-      where: { clerkId: user.id },
-      select: { id: true },
-    });
-    if (!profile) return NextResponse.json({ error: "Profile not found" }, { status: 404 });
-
-    const [membership, hubLeague] = await Promise.all([
-      prisma.hubLeagueMember.findUnique({
-        where: { hubLeagueId_profileId: { hubLeagueId, profileId: profile.id } },
-      }),
-      prisma.hubLeague.findUnique({
-        where: { id: hubLeagueId },
-        select: { ownerId: true },
-      }),
-    ]);
-
-    const isOwner = profile.id === hubLeague?.ownerId;
-
-    // Allow owner through even if they don't have a membership record
-    if (!membership && !isOwner) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    let isOwner = false;
+    if (user) {
+      const [profile, hubLeague] = await Promise.all([
+        prisma.profile.findUnique({
+          where: { clerkId: user.id },
+          select: { id: true },
+        }),
+        prisma.hubLeague.findUnique({
+          where: { id: hubLeagueId },
+          select: { ownerId: true },
+        }),
+      ]);
+      isOwner = !!profile && profile.id === hubLeague?.ownerId;
     }
 
     const champions = await prisma.hubLeagueChampion.findMany({
