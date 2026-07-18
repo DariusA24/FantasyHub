@@ -363,7 +363,7 @@ export default function HubLeaguePage() {
       iconColor: "text-purple-400",
     },
     {
-      href: `/hub-league/${hubLeagueId}/manager`,
+      href: `/manager`,
       label: "Manager",
       icon: FiUser,
       description: "Your manager profile, grades, and recap",

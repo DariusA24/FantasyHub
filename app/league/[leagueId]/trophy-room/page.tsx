@@ -98,7 +98,7 @@ export default function PublicTrophyRoomPage() {
 
   return (
     <div className="min-h-screen" style={{ background: "radial-gradient(ellipse at 50% 0%, #0f0d18 0%, #06050d 60%, #020208 100%)" }}>
-      <div className="mx-auto max-w-5xl px-4 pb-24 pt-6 text-zinc-200">
+      <div className="mx-auto max-w-6xl px-4 pb-24 pt-6 text-zinc-200">
         <LeagueNav />
 
         {/* Header */}

@@ -17,7 +17,7 @@ export default function TrophyCase({ awards }: { awards: TrophyAward[] }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   return (
-    <ul className="grid gap-2 sm:grid-cols-2">
+    <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
       {awards.map((a) => {
         const expanded = expandedId === a.id;
         return (
