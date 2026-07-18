@@ -1,7 +1,10 @@
+import { Fragment } from 'react';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { auth } from '@clerk/nextjs/server';
-import { FiAward, FiTrendingUp, FiUsers, FiShield, FiStar, FiCalendar, FiZap, FiTarget } from 'react-icons/fi';
+import { FiAward, FiTrendingUp, FiUsers, FiShield, FiStar, FiCalendar, FiZap, FiTarget, FiChevronDown } from 'react-icons/fi';
 import { prisma } from '@/utils/db';
+import { getGlobalLeaderboard, getTierStyle, type GlobalRank, type LeaderboardEntry } from '@/utils/computeLeagueShelfRank';
 import {
   getSleeperUserById,
   getUserLeagues,
@@ -20,6 +23,13 @@ const SEASONS = ['2026', '2025', '2024', '2023', '2022', '2021', '2020', '2019',
 
 type LeagueEntry = { league: any; record: { wins: number; losses: number; ties: number }; isChampion: boolean };
 type LeagueHistory = Record<string, LeagueEntry[]>;
+
+type LeaderboardRow = LeaderboardEntry & {
+  name: string;
+  username: string | null;
+  avatar: string | null;
+  isViewed: boolean;
+};
 
 const TIER_STYLES: Record<string, string> = {
   legend:  'border-amber-400/40 bg-amber-500/10 text-amber-600 dark:text-[#F4D06F]',
@@ -68,15 +78,73 @@ async function loadManagerData(username: string) {
   const bestWeek = bestWeekAgg._max.highWeek;
 
   if (!profile.sleeperProfileId) {
-    return { profile, sleeperUser: null, careerStats: null, leagueHistory: {} as LeagueHistory, mostDrafted: [], awards, predictionStat, bestWeek };
+    return { profile, sleeperUser: null, careerStats: null, leagueHistory: {} as LeagueHistory, mostDrafted: [], awards, predictionStat, bestWeek, globalRank: null as GlobalRank | null, leaderboardRows: [] as LeaderboardRow[] };
   }
 
   const sleeperUserId = profile.sleeperProfileId;
 
-  const [sleeperUser, ...leagueResults] = await Promise.allSettled([
+  const [leaderboardRes, sleeperUser, ...leagueResults] = await Promise.allSettled([
+    getGlobalLeaderboard(),
     getSleeperUserById(sleeperUserId),
     ...SEASONS.map((s) => getUserLeagues(sleeperUserId, 'nfl', s)),
   ]);
+
+  const leaderboard = leaderboardRes.status === 'fulfilled' ? leaderboardRes.value : [];
+  const mine =
+    leaderboard.find((e) => e.profileId === profile.id) ??
+    leaderboard.find((e) => e.sleeperUserIds.includes(sleeperUserId)) ??
+    null;
+  const globalRank: GlobalRank | null = mine
+    ? { tier: mine.tier, score: mine.score, seasons: mine.seasons, position: mine.position, totalRanked: leaderboard.length }
+    : null;
+
+  // Leaderboard display: top 50 (scrollable), plus the viewed manager if they sit below it
+  const TOP_N = 50;
+  const displayEntries = leaderboard.slice(0, TOP_N);
+  if (mine && !displayEntries.some((e) => e.key === mine.key)) {
+    displayEntries.push(mine);
+  }
+
+  let leaderboardRows: LeaderboardRow[] = [];
+  if (displayEntries.length > 0) {
+    // LeagueShelf accounts resolve by profile; everyone else by Sleeper identity
+    const profileIds = displayEntries
+      .filter((e) => e.profileId != null)
+      .map((e) => e.profileId as number);
+    const linkedProfiles = profileIds.length > 0
+      ? await prisma.profile.findMany({
+          where: { id: { in: profileIds } },
+          select: { id: true, username: true, firstName: true, lastName: true, profileImage: true },
+        })
+      : [];
+    const profileMap = new Map(linkedProfiles.map((p) => [p.id, p]));
+
+    const sleeperFallbackIds = displayEntries
+      .filter((e) => e.profileId == null || !profileMap.has(e.profileId))
+      .map((e) => e.sleeperUserIds[0]);
+    const sleeperLookups = await Promise.allSettled(sleeperFallbackIds.map((id) => getSleeperUserById(id)));
+    const sleeperMap = new Map<string, any>();
+    sleeperFallbackIds.forEach((id, i) => {
+      const r = sleeperLookups[i];
+      if (r.status === 'fulfilled' && r.value) sleeperMap.set(id, r.value);
+    });
+
+    leaderboardRows = displayEntries.map((e) => {
+      const linked = e.profileId != null ? profileMap.get(e.profileId) : undefined;
+      const slp = sleeperMap.get(e.sleeperUserIds[0]);
+      return {
+        ...e,
+        name: linked
+          ? `${linked.firstName} ${linked.lastName}`.trim()
+          : slp?.display_name ?? 'Unknown manager',
+        username: linked?.username ?? null,
+        avatar:
+          linked?.profileImage ||
+          (slp?.avatar ? `https://sleepercdn.com/avatars/thumbs/${slp.avatar}` : null),
+        isViewed: mine != null && e.key === mine.key,
+      };
+    });
+  }
 
   // Deduplicate leagues across seasons
   const seen = new Set<string>();
@@ -206,6 +274,8 @@ async function loadManagerData(username: string) {
     awards,
     predictionStat,
     bestWeek,
+    globalRank,
+    leaderboardRows,
   };
 }
 
@@ -215,8 +285,9 @@ export default async function ManagerPage({ params }: { params: Promise<{ userna
   const data = await loadManagerData(username);
   if (!data) notFound();
 
-  const { profile, sleeperUser, careerStats, leagueHistory, mostDrafted, awards, predictionStat, bestWeek } = data;
+  const { profile, sleeperUser, careerStats, leagueHistory, mostDrafted, awards, predictionStat, bestWeek, globalRank, leaderboardRows } = data;
   const isOwner = viewerClerkId === profile.clerkId;
+  const rankStyle = globalRank ? getTierStyle(globalRank.tier) : null;
 
   const predictionAccuracy = predictionStat && predictionStat.totalVotes > 0
     ? Math.round((predictionStat.correctPicks / predictionStat.totalVotes) * 100)
@@ -253,13 +324,13 @@ export default async function ManagerPage({ params }: { params: Promise<{ userna
         <div className="mb-8 rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-[#0d0f1a] p-6 shadow-sm dark:shadow-none">
           <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
 
-            <div className="flex items-start gap-4">
+            <div className="flex flex-col items-center text-center gap-4 md:flex-row md:items-start md:text-left">
               <div className="relative shrink-0">
                 <div className="absolute inset-0 rounded-full bg-amber-400/20 blur-xl" />
                 <AvatarImage src={avatarUrl} alt={profile.firstName} />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+                <div className="mb-1.5 flex flex-wrap items-center justify-center md:justify-start gap-1.5">
                   <span className="inline-flex items-center gap-1 rounded-full border border-zinc-200 dark:border-zinc-700/60 bg-zinc-100 dark:bg-zinc-900/60 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
                     <FiStar className="h-3 w-3 text-amber-500 dark:text-[#F4D06F]" />
                     Manager
@@ -304,7 +375,7 @@ export default async function ManagerPage({ params }: { params: Promise<{ userna
                     </span>
                   )}
                 </p>
-                <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400 max-w-sm">
+                <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400 max-w-sm mx-auto md:mx-0">
                   {profile.bio || (
                     isOwner
                       ? <span className="italic text-zinc-400 dark:text-zinc-600">No bio yet — add one below.</span>
@@ -314,14 +385,25 @@ export default async function ManagerPage({ params }: { params: Promise<{ userna
               </div>
             </div>
 
-            <div className="shrink-0 flex flex-col items-end gap-3">
-              {careerStats && (
-                <div className="text-center">
-                  <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">Career Win Rate</p>
-                  <p className="text-4xl font-black text-amber-600 dark:text-[#F4D06F]">{careerStats.winRate}%</p>
-                  <p className="text-xs text-zinc-500 mt-0.5">{careerStats.totalWins}W – {careerStats.totalLosses}L</p>
-                </div>
-              )}
+            <div className="shrink-0 flex flex-col items-center md:items-end gap-3">
+              <div className="flex items-start gap-6 md:gap-5">
+                {globalRank && globalRank.position != null && rankStyle && (
+                  <div className="text-center">
+                    <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">Global Rank</p>
+                    <p className={`text-4xl font-black ${rankStyle.text}`}>#{globalRank.position}</p>
+                    <p className="text-xs text-zinc-500 mt-0.5">
+                      of {globalRank.totalRanked} · <span className={`font-semibold ${rankStyle.text}`}>{globalRank.tier}</span>
+                    </p>
+                  </div>
+                )}
+                {careerStats && (
+                  <div className="text-center">
+                    <p className="text-[10px] uppercase tracking-widest text-zinc-500 mb-1">Career Win Rate</p>
+                    <p className="text-4xl font-black text-amber-600 dark:text-[#F4D06F]">{careerStats.winRate}%</p>
+                    <p className="text-xs text-zinc-500 mt-0.5">{careerStats.totalWins}W – {careerStats.totalLosses}L</p>
+                  </div>
+                )}
+              </div>
               <div className="flex items-center gap-2">
                 <ShareButton />
                 {isOwner && (
@@ -378,13 +460,15 @@ export default async function ManagerPage({ params }: { params: Promise<{ userna
         )}
 
         {/* ── Most Drafted Players ───────────────────── */}
-        <section className="mb-8 rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-[#0a0c14] p-5 shadow-sm dark:shadow-none">
-          <div className="mb-4 flex items-center justify-between">
+        <details className="group mb-8 rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-[#0a0c14] p-5 shadow-sm dark:shadow-none">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
             <div>
               <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Most Drafted Players</h2>
               <p className="text-[11px] text-zinc-500 mt-0.5">Players they keep coming back to</p>
             </div>
-          </div>
+            <FiChevronDown className="h-4 w-4 shrink-0 text-zinc-400 transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="mt-4">
           {mostDrafted.length === 0 ? (
             <p className="text-xs text-zinc-500 italic">
               {profile.sleeperProfileId
@@ -415,12 +499,19 @@ export default async function ManagerPage({ params }: { params: Promise<{ userna
               ))}
             </ul>
           )}
-        </section>
+          </div>
+        </details>
 
         {/* ── League History ─────────────────────────── */}
-        <section className="rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-[#0a0c14] p-5 shadow-sm dark:shadow-none">
-          <h2 className="mb-4 text-sm font-semibold text-zinc-900 dark:text-zinc-100">League History</h2>
-
+        <details className="group rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-[#0a0c14] p-5 shadow-sm dark:shadow-none">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+            <div>
+              <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">League History</h2>
+              <p className="text-[11px] text-zinc-500 mt-0.5">Season-by-season stats across leagues</p>
+            </div>
+            <FiChevronDown className="h-4 w-4 shrink-0 text-zinc-400 transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="mt-4">
           {sortedSeasons.length === 0 ? (
             <p className="text-xs text-zinc-500 italic">
               No league history found.{' '}
@@ -480,8 +571,101 @@ export default async function ManagerPage({ params }: { params: Promise<{ userna
               })}
             </div>
           )}
-        </section>
+          </div>
+        </details>
 
+        {/* ── Global Leaderboard ─────────────────────── */}
+        {leaderboardRows.length > 0 && (
+          <details className="group mt-8 rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-white dark:bg-[#0a0c14] p-5 shadow-sm dark:shadow-none">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+              <div>
+                <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Global Leaderboard</h2>
+                <p className="text-[11px] text-zinc-500 mt-0.5">
+                  Career score across all LeagueShelf managers · {globalRank?.totalRanked ?? leaderboardRows.length} ranked
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                {globalRank?.position != null && rankStyle && (
+                  <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold ${rankStyle.bg} ${rankStyle.border} ${rankStyle.text}`}>
+                    #{globalRank.position} · {globalRank.score} pts
+                  </span>
+                )}
+                <FiChevronDown className="h-4 w-4 text-zinc-400 transition-transform group-open:rotate-180" />
+              </div>
+            </summary>
+            <ul className="mt-4 max-h-96 space-y-1.5 overflow-y-auto pr-1">
+              {leaderboardRows.map((row, i) => {
+                const tierStyle = getTierStyle(row.tier);
+                const hasGap = i > 0 && row.position > leaderboardRows[i - 1].position + 1;
+                return (
+                  <Fragment key={row.key}>
+                    {hasGap && (
+                      <li className="py-0.5 text-center text-xs text-zinc-400 dark:text-zinc-600 select-none">⋯</li>
+                    )}
+                    <li
+                      className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${
+                        row.isViewed
+                          ? 'border-amber-400/40 bg-amber-500/5 dark:bg-[#F4D06F]/5'
+                          : 'border-zinc-200 dark:border-zinc-800/50 bg-zinc-50 dark:bg-zinc-900/40'
+                      }`}
+                    >
+                      <span className={`shrink-0 w-8 text-center text-sm font-black ${row.position <= 3 ? 'text-amber-600 dark:text-[#F4D06F]' : 'text-zinc-400 dark:text-zinc-600'}`}>
+                        #{row.position}
+                      </span>
+                      {(() => {
+                        const avatarEl = row.avatar ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={row.avatar}
+                            alt={row.name}
+                            className="h-7 w-7 rounded-full border border-zinc-200 dark:border-zinc-700 object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-200 dark:bg-zinc-800 text-[10px] font-bold text-zinc-500">
+                            {row.name[0]?.toUpperCase() ?? '?'}
+                          </div>
+                        );
+                        return row.username ? (
+                          <Link href={`/manager/${row.username}`} className="shrink-0 rounded-full transition-opacity hover:opacity-80" aria-label={`View ${row.name}'s manager page`}>
+                            {avatarEl}
+                          </Link>
+                        ) : (
+                          <span className="shrink-0">{avatarEl}</span>
+                        );
+                      })()}
+                      <div className="flex-1 min-w-0">
+                        {row.username ? (
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <Link href={`/manager/${row.username}`} className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100 hover:underline">
+                              {row.name}
+                            </Link>
+                            <span className="shrink-0 rounded-full border border-amber-400/40 bg-amber-500/10 px-1.5 py-0 text-[9px] font-semibold text-amber-600 dark:text-[#F4D06F]">
+                              Hub
+                            </span>
+                          </div>
+                        ) : (
+                          <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{row.name}</p>
+                        )}
+                        <p className="text-[11px] text-zinc-500">
+                          {row.seasons} season{row.seasons !== 1 ? 's' : ''}{!row.username ? ' · Sleeper only' : ''}
+                        </p>
+                      </div>
+                      <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${tierStyle.bg} ${tierStyle.border} ${tierStyle.text}`}>
+                        {row.tier}
+                      </span>
+                      <span className="shrink-0 w-10 text-right text-sm font-black text-zinc-800 dark:text-zinc-200">
+                        {row.score}
+                      </span>
+                    </li>
+                  </Fragment>
+                );
+              })}
+            </ul>
+            <p className="mt-3 text-[10px] text-zinc-400 dark:text-zinc-600">
+              Score averages your finishes across completed hub-league seasons (championships count most). Minimum 2 completed seasons to rank.
+            </p>
+          </details>
+        )}
 
       </div>
     </div>

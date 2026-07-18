@@ -11,8 +11,8 @@ export default function StatsRow({leaguesJoinedCount, winRate = 0, leagueShelfRa
   const formattedWinRate = `${winRate.toFixed(1)}%`;
 
   return (
-    <section className="w-full mt-6 px-8">
-  <div className="grid w-full grid-cols-1 md:grid-cols-3 gap-6">
+    <section className="w-full">
+  <div className="grid w-full grid-cols-1 sm:grid-cols-3 gap-3">
     <StatCard
       icon={<Trophy size={18} className="text-yellow-400" />}
       label="Leagues Joined"

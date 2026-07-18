@@ -439,7 +439,7 @@ export default function PublicFranchisePage() {
           </div>
 
           {profileLoading ? (
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {[...Array(4)].map((_, i) => <div key={i} className="h-16 animate-pulse rounded-xl bg-gray-100 dark:bg-zinc-800/40" />)}
             </div>
           ) : completedAwards.length === 0 ? (
@@ -448,7 +448,7 @@ export default function PublicFranchisePage() {
               <p className="text-[11px] text-gray-400 dark:text-zinc-600">No awards yet.</p>
             </div>
           ) : (
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {completedAwards.map((award) => {
                 const icon = AWARD_ICON[award.type] ?? <FiAward className="h-6 w-6" />;
                 const style = AWARD_STYLE[award.type] ?? "border-gray-200 bg-gray-50 text-gray-500 dark:border-zinc-500/40 dark:bg-zinc-700/20 dark:text-zinc-400";

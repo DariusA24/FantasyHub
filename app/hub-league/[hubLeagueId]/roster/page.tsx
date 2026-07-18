@@ -590,7 +590,7 @@ export default function LeaguePage() {
           </div>
         )}
 
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           {/* Starters card */}
           <section
             className="hub-card shadow-[0_0_25px_rgba(0,0,0,0.6)] p-4 md:p-5 mb-10"
