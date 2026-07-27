@@ -3,6 +3,7 @@ import { prisma } from "@/utils/db";
 import { wagerPayout } from "@/utils/bettingLines";
 
 export const dynamic = "force-dynamic";
+
 export const maxDuration = 60;
 
 const SLEEPER = "https://api.sleeper.app/v1";

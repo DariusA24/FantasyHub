@@ -39,6 +39,24 @@ export async function POST(
       return NextResponse.json({ error: "Cannot accept your own bet" }, { status: 400 });
     }
 
+    const acceptData = {
+      data: { takerId: profile.id, status: "accepted" },
+      include: {
+        creator: {
+          select: { id: true, username: true, firstName: true, lastName: true, profileImage: true },
+        },
+        taker: {
+          select: { id: true, username: true, firstName: true, lastName: true, profileImage: true },
+        },
+      },
+    } as const;
+
+    // Terms (non-currency) bets have no stake to escrow — just take the other side
+    if (bet.stakeType === "terms") {
+      const updatedBet = await prisma.bet.update({ where: { id: betId }, ...acceptData });
+      return NextResponse.json({ bet: updatedBet });
+    }
+
     const wallet = await prisma.wallet.findUnique({
       where: {
         hubLeagueId_profileId: {
@@ -53,18 +71,7 @@ export async function POST(
     }
 
     const [updatedBet] = await prisma.$transaction([
-      prisma.bet.update({
-        where: { id: betId },
-        data: { takerId: profile.id, status: "accepted" },
-        include: {
-          creator: {
-            select: { id: true, username: true, firstName: true, lastName: true, profileImage: true },
-          },
-          taker: {
-            select: { id: true, username: true, firstName: true, lastName: true, profileImage: true },
-          },
-        },
-      }),
+      prisma.bet.update({ where: { id: betId }, ...acceptData }),
       prisma.wallet.update({
         where: { id: wallet.id },
         data: { balance: { decrement: bet.amount } },

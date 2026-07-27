@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthUser } from '@/utils/actions';
+import { getAuthUser, getOptionalAuthUser } from '@/utils/actions';
 import { prisma } from '@/utils/db';
 
 export async function POST(req: Request) {
@@ -221,7 +221,7 @@ export async function POST(req: Request) {
 // NEW: GET /api/hub-leagues?sleeperLeagueId=...
 export async function GET(req: NextRequest) {
   try {
-    const user = await getAuthUser(); // can be null (guest)
+    const user = await getOptionalAuthUser(); // null for guests
     const { searchParams } = new URL(req.url);
     const sleeperLeagueId = searchParams.get("sleeperLeagueId");
     const previousLeagueId = searchParams.get("previousLeagueId");

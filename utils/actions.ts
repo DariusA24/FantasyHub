@@ -14,6 +14,12 @@ export const getAuthUser = async()=> {
     return user;
   }
 
+// Guest-safe: returns the current user or null instead of throwing. Use in
+// public GET routes that also serve logged-out visitors.
+export const getOptionalAuthUser = async () => {
+    return (await currentUser()) ?? null;
+  }
+
   const renderError = (error: unknown): {message:string} => {
     console.log(error); 
     return {message: error instanceof Error ? error.message : 'An error occurred'}; 

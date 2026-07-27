@@ -14,23 +14,32 @@ type Platform      = "Sleeper" | "ESPN" | "Yahoo" | "NFL" | "Other";
 type LeagueFormat  = "Redraft" | "Keeper" | "Dynasty";
 type ScoringFormat = "PPR" | "Half-PPR" | "Standard" | "TE Premium";
 
-type BaseListing = {
+type Listing = {
   id: string;
   type: ListingType;
+  sleeperLeagueId: string | null;
+  openSpotName: string | null;
   leagueName: string;
-  platform: Platform;
+  platform: string;
   format: LeagueFormat;
-  scoring: ScoringFormat;
+  scoring: string;
   teamCount: number;
   entryFee: number | null;
+  spotsAvailable: number | null;
+  record: string | null;
+  standingPosition: number | null;
   description: string;
   contact: string;
-  postedAt: string;
-  poster: { name: string; avatar: string | null };
+  status: string;
+  createdAt: string;
+  creator: {
+    profileId: number;
+    username: string;
+    firstName: string;
+    lastName: string;
+    profileImage: string;
+  };
 };
-type OpenSpotListing = BaseListing & { type: "open-spot"; spotsAvailable: number };
-type WantOutListing  = BaseListing & { type: "want-out"; record: string; standingPosition: number };
-type Listing         = OpenSpotListing | WantOutListing;
 
 type QueueMember = {
   profileId: number;
@@ -61,32 +70,10 @@ type QueuePost = {
   hasJoined: boolean;
 };
 
-// ─── Placeholder data (existing listings) ────────────────────────────────────
+// ─── Helpers for listing display ──────────────────────────────────────────────
 
-const PLACEHOLDER_LISTINGS: Listing[] = [
-  {
-    id: "1", type: "open-spot", leagueName: "The Gridiron Syndicate",
-    platform: "Sleeper", format: "Dynasty", scoring: "PPR", teamCount: 12, entryFee: 50, spotsAvailable: 2,
-    description: "Competitive dynasty league in its 4th year. Two spots opened after managers went inactive. Inheriting a competitive roster — both teams were in playoffs last season.",
-    contact: "@gridiron_commish", postedAt: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
-    poster: { name: "Marcus W.", avatar: null },
-  },
-  {
-    id: "2", type: "want-out", leagueName: "Sunday Carnage FF",
-    platform: "ESPN", format: "Redraft", scoring: "Half-PPR", teamCount: 10, entryFee: 25,
-    record: "7-4", standingPosition: 2,
-    description: "Real life got busy. Sitting 2nd in standings with a stacked roster. Want to transfer my spot to someone who will actually be active. Asking for $20 — I'll cover the rest.",
-    contact: "DM on Discord: sunday_warrior#4421", postedAt: new Date(Date.now() - 1000 * 60 * 60 * 11).toISOString(),
-    poster: { name: "Jordan T.", avatar: null },
-  },
-  {
-    id: "3", type: "open-spot", leagueName: "Dynasty Kings",
-    platform: "Sleeper", format: "Dynasty", scoring: "PPR", teamCount: 14, entryFee: 100, spotsAvailable: 1,
-    description: "Our most competitive dynasty league. Spot opened after a manager moved. Roster needs rebuilding but the league itself is elite-level competition. Must be active.",
-    contact: "@dynastykings_commish", postedAt: new Date(Date.now() - 1000 * 60 * 60 * 26).toISOString(),
-    poster: { name: "Alex R.", avatar: null },
-  },
-];
+const listingPosterName = (l: Listing) =>
+  `${l.creator.firstName} ${l.creator.lastName}`.trim() || l.creator.username;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -428,29 +415,98 @@ function QueueCard({
 
 // ─── Existing listing modals (unchanged) ──────────────────────────────────────
 
-function CreateListingModal({ onClose }: { onClose: () => void }) {
+function CreateListingModal({ onClose, onCreated }: { onClose: () => void; onCreated: (l: Listing) => void }) {
   const [step, setStep]           = useState<"pick-type" | "form">("pick-type");
   const [listingType, setType]    = useState<ListingType>("open-spot");
   const [leagueName, setName]     = useState("");
   const [platform, setPlatform]   = useState<Platform>("Sleeper");
+  const [sleeperLeague, setSleeperLeague] = useState("");
   const [format, setFormat]       = useState<LeagueFormat>("Redraft");
   const [scoring, setScoring]     = useState<ScoringFormat>("PPR");
   const [teamCount, setTeamCount] = useState<number>(12);
   const [entryFee, setFee]        = useState("");
   const [spots, setSpots]         = useState("1");
-  const [record, setRecord]       = useState("");
-  const [position, setPosition]   = useState("");
   const [description, setDesc]    = useState("");
   const [contact, setContact]     = useState("");
+  const [saving, setSaving]       = useState(false);
+  const [error, setError]         = useState<string | null>(null);
 
+  type SleeperLeagueOpt = { leagueId: string; name: string; season: string; totalRosters: number | null };
+  type SleeperTeam = { rosterId: number; teamName: string; ownerName: string | null; wins: number; losses: number; isOpen: boolean };
+  const [myLeagues, setMyLeagues]       = useState<SleeperLeagueOpt[]>([]);
+  const [leaguesLinked, setLinked]      = useState(true);
+  const [leaguesLoading, setLgLoading]  = useState(false);
+  const [teams, setTeams]               = useState<SleeperTeam[]>([]);
+  const [teamsLoading, setTeamsLoading] = useState(false);
+  const [openSpotName, setOpenSpot]     = useState("");
+
+  const isSleeper = platform === "Sleeper";
+
+  // Pull the poster's Sleeper leagues once they reach the Sleeper form
+  useEffect(() => {
+    if (step !== "form" || !isSleeper || myLeagues.length > 0 || leaguesLoading) return;
+    setLgLoading(true);
+    fetch("/api/league-market/my-sleeper-leagues")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d) { setMyLeagues(d.leagues ?? []); setLinked(d.linked !== false); } })
+      .catch(() => {})
+      .finally(() => setLgLoading(false));
+  }, [step, isSleeper, myLeagues.length, leaguesLoading]);
+
+  function selectLeague(leagueId: string) {
+    setSleeperLeague(leagueId);
+    setOpenSpot("");
+    setTeams([]);
+    const lg = myLeagues.find((l) => l.leagueId === leagueId);
+    if (lg) {
+      setName(lg.name);
+      if (lg.totalRosters) setTeamCount(lg.totalRosters);
+    }
+    if (leagueId) {
+      setTeamsLoading(true);
+      fetch(`/api/league-market/sleeper-teams?leagueId=${leagueId}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => { if (d?.teams) setTeams(d.teams); })
+        .catch(() => {})
+        .finally(() => setTeamsLoading(false));
+    }
+  }
   const isFormValid =
-    leagueName.trim() && description.trim() && contact.trim() &&
-    (listingType === "open-spot" ? Number(spots) > 0 : record.trim());
+    (leagueName.trim() || (isSleeper && sleeperLeague.trim())) &&
+    description.trim() && contact.trim() &&
+    (listingType !== "open-spot" || Number(spots) > 0);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    alert("Listing submission coming soon!");
-    onClose();
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/league-market/listings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: listingType,
+          leagueName: leagueName.trim() || undefined,
+          platform, format, scoring,
+          teamCount,
+          entryFee: entryFee || null,
+          description: description.trim(),
+          contact: contact.trim(),
+          sleeperLeagueId: isSleeper && sleeperLeague.trim() ? sleeperLeague.trim() : null,
+          openSpotName: listingType === "open-spot" && openSpotName ? openSpotName : null,
+          spotsAvailable: listingType === "open-spot" ? Number(spots) : null,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? "Failed to post listing");
+        return;
+      }
+      onCreated(data.listing);
+      onClose();
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -493,7 +549,9 @@ function CreateListingModal({ onClose }: { onClose: () => void }) {
           ) : (
             <form id="listing-form" onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
               <div>
-                <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500">League Name</label>
+                <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                  League Name {isSleeper && <span className="normal-case font-normal text-zinc-400">(auto-filled from Sleeper if blank)</span>}
+                </label>
                 <input value={leagueName} onChange={(e) => setName(e.target.value)} placeholder="e.g. The Gridiron Syndicate" className={inputCls} />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -524,6 +582,56 @@ function CreateListingModal({ onClose }: { onClose: () => void }) {
                   </select>
                 </div>
               </div>
+              {isSleeper && (
+                <div>
+                  <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                    Sleeper League <span className="normal-case font-normal text-zinc-400">(links the public league)</span>
+                  </label>
+                  {leaguesLoading ? (
+                    <div className="h-9 animate-pulse rounded-lg bg-zinc-200 dark:bg-zinc-800/50" />
+                  ) : !leaguesLinked ? (
+                    <p className="rounded-lg border border-zinc-200 dark:border-zinc-800/60 bg-zinc-50 dark:bg-zinc-900/40 px-3 py-2 text-[11px] text-zinc-500">
+                      Link your Sleeper account on your profile to pick one of your leagues.
+                    </p>
+                  ) : myLeagues.length === 0 ? (
+                    <p className="rounded-lg border border-zinc-200 dark:border-zinc-800/60 bg-zinc-50 dark:bg-zinc-900/40 px-3 py-2 text-[11px] text-zinc-500">
+                      No Sleeper leagues found on your account.
+                    </p>
+                  ) : (
+                    <select value={sleeperLeague} onChange={(e) => selectLeague(e.target.value)} className={selectCls}>
+                      <option value="">Choose a league…</option>
+                      {myLeagues.map((l) => (
+                        <option key={l.leagueId} value={l.leagueId}>
+                          {l.name} ({l.season})
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <p className="mt-1 text-[11px] text-zinc-400 dark:text-zinc-600">
+                    Lets people browse the rosters, history, and champions before they join.
+                  </p>
+                </div>
+              )}
+
+              {isSleeper && listingType === "open-spot" && sleeperLeague && (
+                <div>
+                  <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                    Which spot is open?
+                  </label>
+                  {teamsLoading ? (
+                    <div className="h-9 animate-pulse rounded-lg bg-zinc-200 dark:bg-zinc-800/50" />
+                  ) : (
+                    <select value={openSpotName} onChange={(e) => setOpenSpot(e.target.value)} className={selectCls}>
+                      <option value="">Choose the team being handed off…</option>
+                      {teams.map((t) => (
+                        <option key={t.rosterId} value={t.teamName}>
+                          {t.teamName}{t.isOpen ? " · open" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
               <div>
                 <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Entry Fee <span className="normal-case font-normal text-zinc-400">(optional)</span></label>
                 <div className="relative">
@@ -531,23 +639,12 @@ function CreateListingModal({ onClose }: { onClose: () => void }) {
                   <input type="number" min="0" value={entryFee} onChange={(e) => setFee(e.target.value)} placeholder="0" className={`${inputCls} pl-8`} />
                 </div>
               </div>
-              {listingType === "open-spot" ? (
+              {listingType === "open-spot" && (
                 <div>
                   <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Spots Available</label>
                   <select value={spots} onChange={(e) => setSpots(e.target.value)} className={selectCls}>
                     {[1, 2, 3, 4].map((n) => <option key={n}>{n}</option>)}
                   </select>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Current Record</label>
-                    <input value={record} onChange={(e) => setRecord(e.target.value)} placeholder="e.g. 7-4" className={inputCls} />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Standing Position</label>
-                    <input type="number" min="1" value={position} onChange={(e) => setPosition(e.target.value)} placeholder="e.g. 2" className={inputCls} />
-                  </div>
                 </div>
               )}
               <div>
@@ -563,15 +660,18 @@ function CreateListingModal({ onClose }: { onClose: () => void }) {
             </form>
           )}
         </div>
+        <div className="px-6 pt-3 shrink-0">
+          {error && <p className="text-xs text-red-500 dark:text-red-400">{error}</p>}
+        </div>
         <div className="flex items-center justify-between px-6 py-4 border-t border-zinc-200 dark:border-zinc-800/60 shrink-0">
           <button type="button" onClick={() => step === "form" ? setStep("pick-type") : onClose()}
             className="rounded-lg px-4 py-2 text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-200 transition">
             {step === "form" ? "Back" : "Cancel"}
           </button>
           {step === "form" && (
-            <button form="listing-form" type="submit" disabled={!isFormValid}
+            <button form="listing-form" type="submit" disabled={!isFormValid || saving}
               className="inline-flex items-center gap-2 rounded-lg bg-amber-500 dark:bg-[#F4D06F] px-4 py-2 text-sm font-semibold text-white dark:text-zinc-950 hover:bg-amber-600 dark:hover:bg-[#f0c84a] transition disabled:opacity-40 disabled:cursor-not-allowed">
-              <FiCheckCircle className="h-3.5 w-3.5" /> Post Listing
+              <FiCheckCircle className="h-3.5 w-3.5" /> {saving ? "Posting…" : "Post Listing"}
             </button>
           )}
         </div>
@@ -600,10 +700,10 @@ function ListingDetailModal({ listing, onClose }: { listing: Listing; onClose: (
           <div>
             <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">{listing.leagueName}</h2>
             <div className="mt-2 flex items-center gap-2 text-xs text-zinc-500">
-              <Avatar name={listing.poster.name} src={listing.poster.avatar} size="sm" />
-              <span className="font-medium text-zinc-700 dark:text-zinc-300">{listing.poster.name}</span>
+              <Avatar name={listingPosterName(listing)} src={listing.creator.profileImage || null} size="sm" href={`/manager/${listing.creator.username}`} />
+              <span className="font-medium text-zinc-700 dark:text-zinc-300">{listingPosterName(listing)}</span>
               <span className="text-zinc-300 dark:text-zinc-700">·</span>
-              <span>{timeAgo(listing.postedAt)}</span>
+              <span>{timeAgo(listing.createdAt)}</span>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -612,9 +712,9 @@ function ListingDetailModal({ listing, onClose }: { listing: Listing; onClose: (
               { label: "Scoring",   value: listing.scoring },
               { label: "Teams",     value: `${listing.teamCount} teams` },
               { label: "Entry Fee", value: listing.entryFee ? `$${listing.entryFee}` : "Free" },
-              ...(listing.type === "open-spot"
+              ...(listing.type === "open-spot" && listing.spotsAvailable != null
                 ? [{ label: "Spots Open", value: `${listing.spotsAvailable}` }]
-                : [{ label: "Record", value: listing.record }, { label: "Standing", value: `#${listing.standingPosition}` }]),
+                : []),
             ].map(({ label, value }) => (
               <div key={label} className="rounded-xl border border-zinc-200 dark:border-zinc-800/60 bg-zinc-50 dark:bg-zinc-900/40 px-4 py-3">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-600 mb-0.5">{label}</p>
@@ -626,15 +726,30 @@ function ListingDetailModal({ listing, onClose }: { listing: Listing; onClose: (
             <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">Details</p>
             <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">{listing.description}</p>
           </div>
+          {listing.openSpotName && (
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-4 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600/70 dark:text-emerald-400/70 mb-0.5">Spot up for grabs</p>
+              <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{listing.openSpotName}</p>
+            </div>
+          )}
+          {listing.sleeperLeagueId && (
+            <Link
+              href={`/league/${listing.sleeperLeagueId}`}
+              className="flex items-center justify-between gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-4 py-3 transition hover:bg-emerald-500/10"
+            >
+              <div>
+                <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">View the public league</p>
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400">See rosters, history, and past champions</p>
+              </div>
+              <FiExternalLink className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            </Link>
+          )}
           <div className="rounded-xl border border-zinc-200 dark:border-zinc-800/60 bg-zinc-50 dark:bg-zinc-900/40 px-4 py-3">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-600 mb-1">Contact</p>
             <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
               <FiMail className="h-3.5 w-3.5 text-zinc-400" />{listing.contact}
             </p>
           </div>
-          <button className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 dark:bg-[#F4D06F] px-4 py-3 text-sm font-semibold text-white dark:text-zinc-950 hover:bg-amber-600 dark:hover:bg-[#f0c84a] transition">
-            <FiExternalLink className="h-4 w-4" /> Reach Out
-          </button>
         </div>
       </div>
     </div>
@@ -647,7 +762,7 @@ function ListingCard({ listing, onClick }: { listing: Listing; onClick: () => vo
     <li onClick={onClick}
       className="group rounded-2xl border border-zinc-200 dark:border-zinc-800/50 bg-white dark:bg-zinc-900/30 px-6 py-5 hover:border-zinc-300 dark:hover:border-zinc-700/70 hover:bg-zinc-50 dark:hover:bg-zinc-900/60 transition cursor-pointer shadow-sm dark:shadow-none">
       <div className="flex items-start gap-4">
-        <Avatar name={listing.poster.name} src={listing.poster.avatar} size="md" />
+        <Avatar name={listingPosterName(listing)} src={listing.creator.profileImage || null} size="md" />
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2 mb-2">
             <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${isOpenSpot ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "border-red-500/40 bg-red-500/10 text-red-600 dark:text-red-400"}`}>
@@ -655,7 +770,12 @@ function ListingCard({ listing, onClick }: { listing: Listing; onClick: () => vo
             </span>
             <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${FORMAT_STYLE[listing.format]}`}>{listing.format}</span>
             <span className="rounded-full border border-zinc-200 dark:border-zinc-800/60 px-2 py-0.5 text-[10px] text-zinc-500">{listing.platform}</span>
-            <span className="ml-auto text-[10px] text-zinc-500">{timeAgo(listing.postedAt)}</span>
+            {listing.sleeperLeagueId && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                <FiExternalLink className="h-2.5 w-2.5" /> Public league
+              </span>
+            )}
+            <span className="ml-auto text-[10px] text-zinc-500">{timeAgo(listing.createdAt)}</span>
           </div>
           <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-zinc-950 dark:group-hover:text-white">{listing.leagueName}</p>
           <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed line-clamp-2">{listing.description}</p>
@@ -663,14 +783,9 @@ function ListingCard({ listing, onClick }: { listing: Listing; onClick: () => vo
             <span className="inline-flex items-center gap-1"><FiUsers className="h-3 w-3" />{listing.teamCount} teams</span>
             <span className="inline-flex items-center gap-1"><FiTag className="h-3 w-3" />{listing.scoring}</span>
             {listing.entryFee !== null && <span className="inline-flex items-center gap-1"><FiDollarSign className="h-3 w-3" />${listing.entryFee} entry</span>}
-            {isOpenSpot && (
+            {isOpenSpot && listing.spotsAvailable != null && (
               <span className="ml-auto inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
-                {(listing as OpenSpotListing).spotsAvailable} spot{(listing as OpenSpotListing).spotsAvailable > 1 ? "s" : ""} open
-              </span>
-            )}
-            {!isOpenSpot && (
-              <span className="ml-auto inline-flex items-center gap-1 font-semibold text-zinc-700 dark:text-zinc-300">
-                {(listing as WantOutListing).record} · #{(listing as WantOutListing).standingPosition} standing
+                {listing.spotsAvailable} spot{listing.spotsAvailable > 1 ? "s" : ""} open
               </span>
             )}
           </div>
@@ -692,6 +807,8 @@ export default function LeagueMarketPage() {
   const [queuePosts, setQueuePosts]     = useState<QueuePost[]>([]);
   const [queueLoaded, setQueueLoaded]   = useState(false);
   const [joiningId, setJoiningId]       = useState<string | null>(null);
+  const [listings, setListings]         = useState<Listing[]>([]);
+  const [listingsLoaded, setListingsLoaded] = useState(false);
 
   useEffect(() => {
     fetch("/api/league-market/new-leagues")
@@ -699,7 +816,17 @@ export default function LeagueMarketPage() {
       .then((d) => setQueuePosts(d.posts ?? []))
       .catch(() => {})
       .finally(() => setQueueLoaded(true));
+
+    fetch("/api/league-market/listings")
+      .then((r) => r.json())
+      .then((d) => setListings(d.listings ?? []))
+      .catch(() => {})
+      .finally(() => setListingsLoaded(true));
   }, []);
+
+  function handleListingCreated(listing: Listing) {
+    setListings((prev) => [listing, ...prev]);
+  }
 
   async function handleJoin(postId: string) {
     setJoiningId(postId);
@@ -723,7 +850,7 @@ export default function LeagueMarketPage() {
     setQueuePosts((prev) => [post, ...prev]);
   }
 
-  const filteredListings = PLACEHOLDER_LISTINGS.filter((l) => {
+  const filteredListings = listings.filter((l) => {
     if (activeTab !== "all" && l.type !== activeTab) return false;
     if (formatFilter !== "All" && l.format !== formatFilter) return false;
     return true;
@@ -835,7 +962,13 @@ export default function LeagueMarketPage() {
           </div>
         </div>
 
-        {filteredListings.length === 0 ? (
+        {!listingsLoaded ? (
+          <ul className="space-y-4">
+            {[1, 2].map((i) => (
+              <li key={i} className="h-32 animate-pulse rounded-2xl bg-zinc-200 dark:bg-zinc-800/40" />
+            ))}
+          </ul>
+        ) : filteredListings.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-zinc-200 dark:border-zinc-800/60 bg-zinc-100 dark:bg-zinc-900/60">
               <FiUsers className="h-6 w-6 text-zinc-400 dark:text-zinc-600" />
@@ -857,7 +990,7 @@ export default function LeagueMarketPage() {
       </div>
 
       {showCreateQueue && <CreateNewLeagueModal onClose={() => setShowCreateQueue(false)} onCreated={handleQueueCreated} />}
-      {showCreate      && <CreateListingModal   onClose={() => setShowCreate(false)} />}
+      {showCreate      && <CreateListingModal   onClose={() => setShowCreate(false)} onCreated={handleListingCreated} />}
       {viewListing     && <ListingDetailModal   listing={viewListing} onClose={() => setViewListing(null)} />}
     </div>
   );

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthUser } from "@/utils/actions";
+import { getAuthUser, getOptionalAuthUser } from "@/utils/actions";
 import { prisma } from "@/utils/db";
 
 type RouteContext = { params: Promise<{ hubLeagueId: string }> };
@@ -11,7 +11,7 @@ export async function GET(_req: NextRequest, ctx: RouteContext) {
 
     // Champions are public display data (shown on the public league trophy
     // room), so guests can read them; isOwner still gates editing in the UI.
-    const user = await getAuthUser();
+    const user = await getOptionalAuthUser();
     let isOwner = false;
     if (user) {
       const [profile, hubLeague] = await Promise.all([
