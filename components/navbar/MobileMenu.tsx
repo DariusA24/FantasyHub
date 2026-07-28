@@ -3,10 +3,12 @@
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { FiMenu, FiX, FiHome, FiGrid } from 'react-icons/fi';
+import { FiMenu, FiX, FiHome, FiGrid, FiDownload } from 'react-icons/fi';
+import { toast } from 'sonner';
 import { TOOLS } from './ToolsDropdown';
 import { COMMUNITY_LINKS } from './CommunityDropdown';
 import NavSearch from './NavSearch';
+import { usePwaInstall } from '../pwa/usePwaInstall';
 
 const MAIN_LINKS = [
   { href: '/', label: 'Home', icon: FiHome },
@@ -17,6 +19,19 @@ export default function MobileMenu() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
+  const { canInstall, hasNativePrompt, promptInstall } = usePwaInstall();
+
+  const handleInstall = async () => {
+    if (hasNativePrompt) {
+      await promptInstall();
+    } else {
+      // iOS Safari: no programmatic install, guide the user instead.
+      toast('Install LeagueShelf', {
+        description: 'Tap the Share button, then "Add to Home Screen".',
+      });
+    }
+    setOpen(false);
+  };
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -114,6 +129,21 @@ export default function MobileMenu() {
               );
             })}
           </ul>
+
+          {canInstall && (
+            <>
+              <div className="my-2 border-t border-zinc-200 dark:border-zinc-800/80" />
+              <button
+                onClick={handleInstall}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-colors"
+              >
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/10">
+                  <FiDownload className="h-4 w-4 text-amber-500 dark:text-[#F4D06F]" />
+                </div>
+                <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-100">Install App</p>
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>

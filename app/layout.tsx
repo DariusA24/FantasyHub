@@ -1,16 +1,32 @@
-import type { Metadata } from "next";
-import { Inter } from 'next/font/google'; 
+import type { Metadata, Viewport } from "next";
+import { Inter } from 'next/font/google';
 import "./globals.css";
 import Navbar from "../components/navbar/Navbar";
 import Footer from "../components/ui/Footer";
 import Providers from "./providers";
+import ServiceWorkerRegister from "../components/pwa/ServiceWorkerRegister";
+import InstallPrompt from "../components/pwa/InstallPrompt";
 import { ClerkProvider } from '@clerk/nextjs'
 
-const inter = Inter({subsets: ['latin']}); 
+const inter = Inter({subsets: ['latin']});
 
 export const metadata: Metadata = {
   title: "LeagueShelf",
   description: "LeagueShelf, make fantasy sports better.",
+  applicationName: "LeagueShelf",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "LeagueShelf",
+  },
+  icons: {
+    icon: "/icons/icon-192.png",
+    apple: "/icons/apple-touch-icon.png",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#f97316",
 };
 
 export default function RootLayout({
@@ -25,9 +41,11 @@ export default function RootLayout({
         className={inter.className}
       >
         <Providers>
+        <ServiceWorkerRegister />
         <Navbar />
         {children}
         <Footer />
+        <InstallPrompt />
         </Providers>
       </body>
     </html>
