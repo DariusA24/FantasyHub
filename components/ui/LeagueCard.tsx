@@ -110,11 +110,13 @@ export function LeagueCard({
                 {formattedTeams}
               </span>
 
-              <span
-                className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${statusClasses}`}
-              >
-                {humanStatus}
-              </span>
+              {status && (
+                <span
+                  className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${statusClasses}`}
+                >
+                  {humanStatus}
+                </span>
+              )}
 
               {record && (
                 <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-100">

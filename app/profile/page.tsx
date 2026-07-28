@@ -275,11 +275,11 @@ export default function ProfilePage() {
             </FormContainer>
           </SectionCard>
 
-          {/* ─── ESPN Leagues — hidden for MVP ─────────────── */}
-          {/* <EspnPanel
+          {/* ─── ESPN Leagues ──────────────────────────────── */}
+          <EspnPanel
             initial={userProfile?.espnLeagues ?? []}
             hasCredentials={userProfile?.hasEspnCredentials ?? false}
-          /> */}
+          />
 
         </div>
       </div>

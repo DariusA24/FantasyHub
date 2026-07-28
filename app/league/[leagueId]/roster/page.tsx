@@ -63,6 +63,22 @@ type SleeperRoster = {
   settings?: { wins?: number; losses?: number; fpts?: number; fpts_decimal?: number };
 };
 
+type TradedPick = {
+  season: string;
+  round: number;
+  roster_id: number;        // roster the pick originally belongs to
+  owner_id: number;         // roster that currently owns it
+  previous_owner_id: number;
+};
+
+type OwnedPick = { season: string; round: number; originalRosterId: number; isOwn: boolean };
+
+const ordinal = (n: number) => {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
+};
+
 type SleeperPlayer = {
   player_id: string;
   full_name?: string | null;
@@ -85,6 +101,8 @@ export default function PublicRosterPage() {
   const [error, setError]         = useState<string | null>(null);
   const [myRoster, setMyRoster]   = useState<SleeperRoster | null>(null);
   const [allRosters, setAllRosters] = useState<SleeperRoster[]>([]);
+  const [tradedPicks, setTradedPicks] = useState<TradedPick[]>([]);
+  const [draftedSeasons, setDraftedSeasons] = useState<string[]>([]);
   const [leagueUsers, setLeagueUsers] = useState<SleeperLeagueUser[]>([]);
   const [viewingRosterId, setViewingRosterId] = useState<number | null>(null);
   const [player, setPlayer]       = useState<Record<string, SleeperPlayer>>({});
@@ -142,6 +160,29 @@ export default function PublicRosterPage() {
         if (allPlayerIds.length > 0) {
           const pr = await fetch(`/api/sleeper/players?ids=${encodeURIComponent(allPlayerIds.join(","))}`);
           setPlayer(pr.ok ? await pr.json() : {});
+        }
+
+        // Future draft picks (dynasty/keeper) — best-effort. Also pull drafts
+        // so we can drop any season that has already been drafted.
+        try {
+          const [picksRes, draftsRes] = await Promise.all([
+            fetch(`https://api.sleeper.app/v1/league/${encodeURIComponent(leagueId)}/traded_picks`),
+            fetch(`https://api.sleeper.app/v1/league/${encodeURIComponent(leagueId)}/drafts`),
+          ]);
+          if (picksRes.ok) {
+            const picks = await picksRes.json();
+            if (Array.isArray(picks)) setTradedPicks(picks);
+          }
+          if (draftsRes.ok) {
+            const drafts = await draftsRes.json();
+            if (Array.isArray(drafts)) {
+              setDraftedSeasons(
+                drafts.filter((d: any) => d.status === "complete").map((d: any) => String(d.season))
+              );
+            }
+          }
+        } catch {
+          /* picks are optional */
         }
       } catch (e: any) {
         setError(e?.message ?? "Unknown error.");
@@ -213,6 +254,49 @@ export default function PublicRosterPage() {
     () => allRosters.find(r => r.roster_id === viewingRosterId) ?? myRoster,
     [viewingRosterId, allRosters, myRoster]
   );
+
+  const rosterName = useMemo(() => {
+    const m: Record<number, string> = {};
+    for (const r of allRosters) {
+      const u = userMap[r.owner_id];
+      m[r.roster_id] = u?.metadata?.team_name || u?.display_name || `Team ${r.roster_id}`;
+    }
+    return m;
+  }, [allRosters, userMap]);
+
+  const leagueType = leagueSettings?.settings?.type; // 0 redraft, 1 keeper, 2 dynasty
+  const showPicks = leagueType === 1 || leagueType === 2;
+  const ownedPicks = useMemo<OwnedPick[]>(() => {
+    if (!displayedRoster || !showPicks || allRosters.length === 0) return [];
+    const currentYear = new Date().getFullYear();
+    const rounds =
+      leagueSettings?.settings?.draft_rounds ||
+      (tradedPicks.length ? Math.max(...tradedPicks.map(p => p.round)) : 0) ||
+      4;
+    const defaults = [currentYear + 1, currentYear + 2, currentYear + 3].map(String);
+    const fromTrades = tradedPicks.map(p => p.season).filter(s => Number(s) >= currentYear);
+    const seasons = Array.from(new Set([...defaults, ...fromTrades]))
+      .filter(s => !draftedSeasons.includes(s)) // drop already-drafted seasons
+      .sort()
+      .slice(0, 4);
+
+    const me = displayedRoster.roster_id;
+    const rosterIds = allRosters.map(r => r.roster_id);
+    const picks: OwnedPick[] = [];
+    for (const season of seasons) {
+      for (let round = 1; round <= rounds; round++) {
+        for (const orig of rosterIds) {
+          const tp = tradedPicks.find(p => p.season === season && p.round === round && p.roster_id === orig);
+          const owner = tp ? tp.owner_id : orig;
+          if (owner === me) picks.push({ season, round, originalRosterId: orig, isOwn: orig === me });
+        }
+      }
+    }
+    picks.sort((a, b) =>
+      a.season.localeCompare(b.season) || a.round - b.round || (a.isOwn === b.isOwn ? 0 : a.isOwn ? -1 : 1)
+    );
+    return picks;
+  }, [displayedRoster, showPicks, tradedPicks, allRosters, leagueSettings, draftedSeasons]);
 
   const { starters, bench } = useMemo(() => {
     if (!displayedRoster?.players) return { starters: [] as string[], bench: [] as string[] };
@@ -520,6 +604,42 @@ export default function PublicRosterPage() {
             )}
           </section>
         </div>
+
+        {/* ─── Draft Picks (dynasty / keeper) ─── */}
+        {showPicks && (
+          <section className="hub-card shadow-[0_0_18px_rgba(0,0,0,0.5)] p-4 md:p-5 mb-10">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-zinc-100">Draft Picks</h3>
+                <p className="text-xs text-gray-500 dark:text-zinc-400">Future rookie picks this team owns.</p>
+              </div>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-500 dark:text-sky-300 border border-sky-500/40">
+                {ownedPicks.length} picks
+              </span>
+            </div>
+            {ownedPicks.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-zinc-400">No future picks owned.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {ownedPicks.map((pk, i) => (
+                  <span
+                    key={`${pk.season}-${pk.round}-${pk.originalRosterId}-${i}`}
+                    className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs ${
+                      pk.isOwn
+                        ? "border-zinc-200 dark:border-zinc-800/60 bg-zinc-50 dark:bg-zinc-900/40 text-zinc-700 dark:text-zinc-200"
+                        : "border-emerald-500/30 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300"
+                    }`}
+                  >
+                    <span className="font-semibold">{pk.season} {ordinal(pk.round)}</span>
+                    {!pk.isOwn && (
+                      <span className="text-[10px] opacity-80">via {rosterName[pk.originalRosterId] ?? `Team ${pk.originalRosterId}`}</span>
+                    )}
+                  </span>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
         <PlayerStatsModal
           open={isStatsOpen}

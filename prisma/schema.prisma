@@ -641,6 +641,23 @@ model LeagueQueueMember {
   @@index([profileId])
 }
 
+// ─── ESPN franchise bios (franchise page) ─────────────────────────────────────
+// Editable blurb per franchise (owner) on the ESPN franchise page. Keyed on the
+// ESPN league + owner member id (SWID) since the franchise spans seasons; anyone
+// who has synced the league can edit.
+
+model EspnFranchiseBio {
+  id        String   @id @default(cuid())
+  leagueId  String   // ESPN numeric league ID
+  memberId  String   // ESPN owner SWID
+  bio       String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([leagueId, memberId])
+  @@index([leagueId])
+}
+
 // ─── League Marketplace Listings ──────────────────────────────────────────────
 // An open spot in (or a team for sale from) an existing league. When the league
 // is on Sleeper, sleeperLeagueId links its public /league/[id] page so browsers
@@ -651,6 +668,8 @@ model LeagueMarketListing {
   creatorId        Int
   type             String   // "open-spot" | "want-out"
   sleeperLeagueId  String?  // linked public Sleeper league
+  espnLeagueId     String?  // linked ESPN league (with espnSeason)
+  espnSeason       String?  // season for the linked ESPN league
   openSpotName     String?  // the team/manager slot being offered (open-spot)
   leagueName       String
   platform         String
