@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/settle-lines",
       "schedule": "30 10 * * 2"
+    },
+    {
+      "path": "/api/cron/settle-futures",
+      "schedule": "45 10 * * 2"
     }
   ]
 }

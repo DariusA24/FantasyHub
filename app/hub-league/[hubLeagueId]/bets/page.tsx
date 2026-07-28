@@ -15,7 +15,7 @@ import {
   FiEdit2,
   FiLock,
 } from "react-icons/fi";
-import { GiTwoCoins, GiDeathSkull, GiRollingDices } from "react-icons/gi";
+import { GiTwoCoins, GiDeathSkull, GiRollingDices, GiPodiumWinner } from "react-icons/gi";
 
 type Profile = {
   id: number;
@@ -28,8 +28,10 @@ type Profile = {
 type Bet = {
   id: string;
   type: "season" | "h2h";
+  stakeType: "coins" | "terms";
   title: string;
   description: string | null;
+  terms: string | null;
   amount: number;
   status: "open" | "accepted" | "settled" | "cancelled";
   result: "creator" | "taker" | "push" | null;
@@ -80,6 +82,76 @@ type Book = {
   seasonType: string;
   locked: boolean;
   lines: Line[];
+};
+
+type FutureOption = {
+  id: string;
+  label: string;
+  rosterId: number | null;
+  pick: string | null;
+  odds: number;
+};
+
+type Future = {
+  id: string;
+  kind: "champion" | "win_total";
+  title: string;
+  subjectName: string | null;
+  line: number | null;
+  status: "open" | "settled" | "void";
+  result: string | null;
+  finalValue: number | null;
+  closesWeek: number;
+  options: FutureOption[];
+};
+
+type FutureWager = {
+  id: string;
+  futureId: string;
+  optionId: string;
+  stake: number;
+  odds: number;
+  status: "pending" | "won" | "lost" | "void";
+  payout: number | null;
+};
+
+type FuturesData = {
+  season: string;
+  seasonType: string;
+  week: number;
+  locked: boolean;
+  futures: Future[];
+  myWagers: FutureWager[];
+};
+
+type MyWager = {
+  id: string;
+  pick: "home" | "away" | "over" | "under";
+  stake: number;
+  odds: number;
+  status: "pending" | "won" | "lost" | "push" | "void";
+  payout: number | null;
+  settledAt: string | null;
+  line: {
+    id: string;
+    week: number;
+    season: string;
+    homeName: string;
+    awayName: string;
+    totalLine: number;
+    status: "open" | "settled" | "void";
+  };
+};
+
+type Standing = {
+  profileId: number;
+  username: string;
+  name: string;
+  profileImage: string | null;
+  balance: number;
+  house: { wins: number; losses: number; pushes: number; net: number; biggestWin: number; pending: number };
+  p2p: { wins: number; losses: number; net: number };
+  totalNet: number;
 };
 
 const STATUS_STYLE: Record<string, string> = {
@@ -270,21 +342,26 @@ function PunishmentBar({
 // ─── Create Bet Modal ────────────────────────────────────────────────────
 function CreateBetModal({
   hubLeagueId,
+  initialType,
   onClose,
   onCreated,
 }: {
   hubLeagueId: string;
+  initialType: "season" | "h2h";
   onClose: () => void;
   onCreated: (bet: Bet) => void;
 }) {
-  const [type, setType] = useState<"season" | "h2h">("season");
+  const [type, setType] = useState<"season" | "h2h">(initialType);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [terms, setTerms] = useState("");
   const [amount, setAmount] = useState("");
   const [season, setSeason] = useState(String(new Date().getFullYear()));
   const [week, setWeek] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isTerms = type === "h2h";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -292,7 +369,13 @@ function CreateBetModal({
     setError(null);
 
     const parsedAmount = parseInt(amount, 10);
-    if (!parsedAmount || parsedAmount <= 0) {
+    if (isTerms) {
+      if (!terms.trim()) {
+        setError("Enter the stakes for this bet");
+        setSaving(false);
+        return;
+      }
+    } else if (!parsedAmount || parsedAmount <= 0) {
       setError("Enter a valid wager amount");
       setSaving(false);
       return;
@@ -306,7 +389,8 @@ function CreateBetModal({
           type,
           title: title.trim(),
           description: description.trim() || null,
-          amount: parsedAmount,
+          terms: isTerms ? terms.trim() : null,
+          amount: isTerms ? 0 : parsedAmount,
           season: type === "season" ? season : null,
           week: type === "h2h" && week ? parseInt(week, 10) : null,
         }),
@@ -346,7 +430,9 @@ function CreateBetModal({
 
         <h2 className="mb-1 text-lg font-bold text-gray-900 dark:text-zinc-100">Create a Bet</h2>
         <p className="mb-5 text-xs text-gray-400 dark:text-zinc-500">
-          Propose a wager — another member can accept the other side.
+          {isTerms
+            ? "Challenge a manager — set your own stakes, no coins. Winner takes the record."
+            : "Propose a wager — another member can accept the other side."}
         </p>
 
         {error && (
@@ -394,40 +480,22 @@ function CreateBetModal({
             onChange={(e) => setDescription(e.target.value)}
           />
 
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label className="mb-1 block text-[11px] font-medium text-gray-400 dark:text-zinc-500">
-                Wager Amount
-              </label>
-              <div className="relative">
-                <GiTwoCoins className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#F4D06F]" />
-                <input
-                  className={inputClass + " pl-9"}
-                  type="number"
-                  min={1}
-                  placeholder="500"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
-            {type === "season" ? (
-              <div className="w-28">
+          {isTerms ? (
+            <div className="flex gap-3">
+              <div className="flex-1">
                 <label className="mb-1 block text-[11px] font-medium text-gray-400 dark:text-zinc-500">
-                  Season
+                  Stakes
                 </label>
                 <input
                   className={inputClass}
                   type="text"
-                  placeholder="2025"
-                  value={season}
-                  onChange={(e) => setSeason(e.target.value)}
+                  placeholder='e.g. "Loser buys lunch"'
+                  value={terms}
+                  onChange={(e) => setTerms(e.target.value)}
+                  required
                 />
               </div>
-            ) : (
-              <div className="w-28">
+              <div className="w-24">
                 <label className="mb-1 block text-[11px] font-medium text-gray-400 dark:text-zinc-500">
                   Week
                 </label>
@@ -441,12 +509,44 @@ function CreateBetModal({
                   onChange={(e) => setWeek(e.target.value)}
                 />
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="mb-1 block text-[11px] font-medium text-gray-400 dark:text-zinc-500">
+                  Wager Amount
+                </label>
+                <div className="relative">
+                  <GiTwoCoins className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#F4D06F]" />
+                  <input
+                    className={inputClass + " pl-9"}
+                    type="number"
+                    min={1}
+                    placeholder="500"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="w-28">
+                <label className="mb-1 block text-[11px] font-medium text-gray-400 dark:text-zinc-500">
+                  Season
+                </label>
+                <input
+                  className={inputClass}
+                  type="text"
+                  placeholder="2025"
+                  value={season}
+                  onChange={(e) => setSeason(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
 
           <button
             type="submit"
-            disabled={saving || !title.trim() || !amount}
+            disabled={saving || !title.trim() || (isTerms ? !terms.trim() : !amount)}
             className="w-full rounded-lg bg-[#F4D06F] px-4 py-2.5 text-sm font-bold text-black transition hover:bg-[#e6c35e] disabled:opacity-40"
           >
             {saving ? "Creating…" : "Post Bet"}
@@ -518,7 +618,12 @@ function SettleModal({
         <h2 className="mb-1 text-lg font-bold text-gray-900 dark:text-zinc-100">Settle Bet</h2>
         <p className="mb-2 text-sm text-gray-600 dark:text-zinc-300">{bet.title}</p>
         <p className="mb-5 text-xs text-gray-400 dark:text-zinc-500">
-          {bet.creator.username} vs {bet.taker?.username} — {bet.amount.toLocaleString()} coins each
+          {bet.creator.username} vs {bet.taker?.username}
+          {bet.stakeType === "terms"
+            ? bet.terms
+              ? ` — ${bet.terms}`
+              : " — bragging rights"
+            : ` — ${bet.amount.toLocaleString()} coins each`}
         </p>
 
         {error && (
@@ -547,7 +652,7 @@ function SettleModal({
             onClick={() => settle("push")}
             className="w-full rounded-lg border border-gray-200 dark:border-zinc-700 px-4 py-2.5 text-sm font-semibold text-gray-400 dark:text-zinc-500 transition hover:bg-gray-50 dark:hover:bg-zinc-800 disabled:opacity-40"
           >
-            Push (Refund Both)
+            {bet.stakeType === "terms" ? "Call It Off (Push)" : "Push (Refund Both)"}
           </button>
         </div>
       </div>
@@ -601,6 +706,12 @@ function BetCard({
         {bet.description && (
           <p className="text-[11px] text-gray-400 dark:text-zinc-500 mt-0.5">{bet.description}</p>
         )}
+        {bet.stakeType === "terms" && bet.terms && (
+          <p className="mt-1 inline-flex items-center gap-1 rounded-md bg-blue-500/10 px-1.5 py-0.5 text-[11px] font-medium text-blue-500 dark:text-blue-400">
+            <GiPodiumWinner className="h-3 w-3" />
+            {bet.terms}
+          </p>
+        )}
         <p className="text-[11px] text-gray-400 dark:text-zinc-500 mt-0.5">
           {bet.creator.username}
           {bet.taker ? (
@@ -620,10 +731,16 @@ function BetCard({
       </div>
 
       <div className="flex flex-col items-end gap-1.5 shrink-0">
-        <span className="inline-flex items-center gap-1 text-sm font-bold text-gray-800 dark:text-zinc-200">
-          <GiTwoCoins className="h-3.5 w-3.5 text-[#F4D06F]" />
-          {bet.amount.toLocaleString()}
-        </span>
+        {bet.stakeType === "terms" ? (
+          <span className="inline-flex items-center gap-1 rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold text-blue-500 dark:text-blue-400">
+            Pride
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 text-sm font-bold text-gray-800 dark:text-zinc-200">
+            <GiTwoCoins className="h-3.5 w-3.5 text-[#F4D06F]" />
+            {bet.amount.toLocaleString()}
+          </span>
+        )}
         <span
           className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium capitalize ${
             STATUS_STYLE[bet.status]
@@ -918,6 +1035,235 @@ function LineCard({
   );
 }
 
+// ─── Season Futures (in The Book) ────────────────────────────────────────
+function FutureOptionRow({
+  option,
+  future,
+  balance,
+  locked,
+  myWager,
+  hubLeagueId,
+  onPlaced,
+}: {
+  option: FutureOption;
+  future: Future;
+  balance: number | null;
+  locked: boolean;
+  myWager: FutureWager | undefined;
+  hubLeagueId: string;
+  onPlaced: (wager: FutureWager) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [stake, setStake] = useState("");
+  const [placing, setPlacing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const bettable = !locked && future.status === "open" && !myWager;
+  const stakeNum = parseInt(stake, 10) || 0;
+
+  async function place() {
+    if (!stakeNum) {
+      setError("Enter a stake");
+      return;
+    }
+    setPlacing(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/hub-leagues/${hubLeagueId}/futures/${future.id}/wager`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ optionId: option.id, stake: stakeNum }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? "Failed to place bet");
+        return;
+      }
+      onPlaced(data.wager);
+      setOpen(false);
+      setStake("");
+    } finally {
+      setPlacing(false);
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-gray-100 dark:border-zinc-800/60 px-3 py-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="min-w-0 truncate text-sm font-medium text-gray-900 dark:text-zinc-100">
+          {option.label}
+        </p>
+        {myWager ? (
+          <span
+            className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+              myWager.status === "pending"
+                ? "border-[#F4D06F]/30 bg-[#F4D06F]/10 text-[#F4D06F]"
+                : WAGER_STATUS_STYLE[myWager.status]
+            }`}
+          >
+            {myWager.status === "pending"
+              ? `${myWager.stake.toLocaleString()} @ ${myWager.odds.toFixed(2)}x`
+              : myWager.status === "won"
+              ? `+${myWager.payout?.toLocaleString()}`
+              : myWager.status}
+          </span>
+        ) : bettable ? (
+          <OddsButton
+            label="Bet"
+            odds={option.odds}
+            active={open}
+            disabled={false}
+            onClick={() => { setOpen((v) => !v); setError(null); }}
+          />
+        ) : (
+          <span className="shrink-0 text-xs font-semibold text-gray-400 dark:text-zinc-500">
+            {option.odds.toFixed(2)}x
+          </span>
+        )}
+      </div>
+
+      {open && bettable && (
+        <div className="mt-2 flex items-center gap-2">
+          <div className="relative flex-1">
+            <GiTwoCoins className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#F4D06F]" />
+            <input
+              type="number"
+              min={1}
+              max={balance ?? undefined}
+              placeholder="Stake"
+              value={stake}
+              onChange={(e) => setStake(e.target.value)}
+              className="w-full rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 py-1.5 pl-8 pr-2 text-sm text-gray-900 dark:text-zinc-100 placeholder:text-gray-400 dark:placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-[#F4D06F]/50"
+            />
+          </div>
+          <button
+            disabled={placing || !stakeNum}
+            onClick={place}
+            className="rounded-lg bg-[#F4D06F] px-3 py-1.5 text-xs font-bold text-black transition hover:bg-[#e6c35e] disabled:opacity-40"
+          >
+            {placing ? "…" : "Place"}
+          </button>
+        </div>
+      )}
+      {open && bettable && stakeNum > 0 && (
+        <p className="mt-1 text-[11px] text-gray-400 dark:text-zinc-500">
+          Pays <span className="font-bold text-[#F4D06F]">{Math.floor(stakeNum * option.odds).toLocaleString()}</span>
+        </p>
+      )}
+      {error && <p className="mt-1 text-[11px] text-red-400">{error}</p>}
+    </div>
+  );
+}
+
+function FuturesSection({
+  data,
+  loading,
+  balance,
+  hubLeagueId,
+  onPlaced,
+}: {
+  data: FuturesData | null;
+  loading: boolean;
+  balance: number | null;
+  hubLeagueId: string;
+  onPlaced: (wager: FutureWager) => void;
+}) {
+  if (loading) {
+    return <div className="h-40 animate-pulse rounded-2xl bg-gray-100 dark:bg-zinc-800/40" />;
+  }
+  if (!data || data.futures.length === 0) {
+    return (
+      <section className="hub-card p-5">
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-zinc-100">Season Futures</h2>
+        <p className="mt-2 text-xs text-gray-400 dark:text-zinc-500 italic">
+          {data?.seasonType === "post"
+            ? "Season futures open again next year."
+            : "Futures will appear once the league's rosters and standings are available."}
+        </p>
+      </section>
+    );
+  }
+
+  const wagerFor = (optionId: string) => data.myWagers.find((w) => w.optionId === optionId);
+  const champion = data.futures.find((f) => f.kind === "champion");
+  const winTotals = data.futures.filter((f) => f.kind === "win_total");
+
+  return (
+    <section className="hub-card p-5">
+      <div className="mb-3 flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-gray-900 dark:text-zinc-100">Season Futures</h2>
+          <p className="text-[11px] text-gray-400 dark:text-zinc-500 mt-0.5">
+            League champion & team win totals — odds locked at open, settle at season&apos;s end
+          </p>
+        </div>
+        {data.locked && (
+          <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[10px] font-medium text-amber-400">
+            <FiLock className="h-3 w-3" /> Closed
+          </span>
+        )}
+      </div>
+
+      {/* League champion */}
+      {champion && (
+        <div className="mb-4">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-gray-400 dark:text-zinc-500">
+            League Champion
+          </p>
+          <div className="space-y-1.5">
+            {champion.options.map((o) => (
+              <FutureOptionRow
+                key={o.id}
+                option={o}
+                future={champion}
+                balance={balance}
+                locked={data.locked}
+                myWager={wagerFor(o.id)}
+                hubLeagueId={hubLeagueId}
+                onPlaced={onPlaced}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Win totals */}
+      {winTotals.length > 0 && (
+        <div>
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-gray-400 dark:text-zinc-500">
+            Win Totals
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {winTotals.map((f) => (
+              <div key={f.id} className="rounded-xl border border-gray-100 dark:border-zinc-800/60 p-2.5">
+                <p className="mb-1.5 truncate text-xs font-semibold text-gray-900 dark:text-zinc-100">
+                  {f.subjectName}
+                  <span className="ml-1 font-normal text-gray-400 dark:text-zinc-500">
+                    o/u {f.line}
+                  </span>
+                </p>
+                <div className="space-y-1">
+                  {f.options.map((o) => (
+                    <FutureOptionRow
+                      key={o.id}
+                      option={o}
+                      future={f}
+                      balance={balance}
+                      locked={data.locked}
+                      myWager={wagerFor(o.id)}
+                      hubLeagueId={hubLeagueId}
+                      onPlaced={onPlaced}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function BookSection({
   book,
   loading,
@@ -951,7 +1297,72 @@ function BookSection({
     );
   }
 
+  // Flatten the current user's still-pending wagers across every line so they
+  // have one clear place to see the house bets they have in play.
+  const myOpenWagers = book.lines.flatMap((line) =>
+    line.wagers
+      .filter((w) => w.profile.id === currentProfileId && w.status === "pending")
+      .map((w) => ({ line, wager: w }))
+  );
+  const totalAtRisk = myOpenWagers.reduce((sum, { wager }) => sum + wager.stake, 0);
+  const pickText = (line: Line, w: LineWager) =>
+    w.pick === "home"
+      ? `${line.homeName} ML`
+      : w.pick === "away"
+      ? `${line.awayName} ML`
+      : w.pick === "over"
+      ? `Over ${line.totalLine}`
+      : `Under ${line.totalLine}`;
+
   return (
+    <>
+      {myOpenWagers.length > 0 && (
+        <section className="mb-3 hub-card p-5">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-zinc-100">
+                Your Open Wagers
+              </h2>
+              <p className="text-[11px] text-gray-400 dark:text-zinc-500 mt-0.5">
+                In play until the week settles Tuesday
+              </p>
+            </div>
+            <div className="shrink-0 text-right">
+              <span className="inline-flex items-center gap-1 text-sm font-black text-gray-900 dark:text-zinc-100">
+                <GiTwoCoins className="h-3.5 w-3.5 text-[#F4D06F]" />
+                {totalAtRisk.toLocaleString()}
+              </span>
+              <p className="text-[10px] text-gray-400 dark:text-zinc-500">at risk</p>
+            </div>
+          </div>
+          <ul className="space-y-1.5">
+            {myOpenWagers.map(({ line, wager }) => (
+              <li
+                key={wager.id}
+                className="flex items-center justify-between gap-2 rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-semibold text-gray-900 dark:text-zinc-100">
+                    {pickText(line, wager)}
+                  </p>
+                  <p className="text-[10px] text-gray-400 dark:text-zinc-500">
+                    Wk {line.week} · {line.awayName} @ {line.homeName}
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-xs font-bold text-gray-800 dark:text-zinc-200">
+                    {wager.stake.toLocaleString()} @ {wager.odds.toFixed(2)}x
+                  </p>
+                  <p className="text-[10px] text-[#F4D06F]">
+                    pays {Math.floor(wager.stake * wager.odds).toLocaleString()}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
     <section className="hub-card p-5">
       <div className="mb-3 flex items-center justify-between">
         <div>
@@ -990,10 +1401,328 @@ function BookSection({
         </ul>
       )}
     </section>
+    </>
+  );
+}
+
+// ─── Active (unified in-play view) ───────────────────────────────────────
+function wagerPickLabel(
+  line: { homeName: string; awayName: string; totalLine: number },
+  pick: MyWager["pick"]
+) {
+  return pick === "home"
+    ? `${line.homeName} ML`
+    : pick === "away"
+    ? `${line.awayName} ML`
+    : pick === "over"
+    ? `Over ${line.totalLine}`
+    : `Under ${line.totalLine}`;
+}
+
+function WagerRow({ wager }: { wager: MyWager }) {
+  const pending = wager.status === "pending";
+  return (
+    <li className="hub-inner-card flex items-center gap-3 rounded-xl px-4 py-3">
+      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#F4D06F]/10">
+        <GiTwoCoins className="h-4 w-4 text-[#F4D06F]" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-gray-900 dark:text-zinc-100">
+          {wagerPickLabel(wager.line, wager.pick)}
+        </p>
+        <p className="text-[11px] text-gray-400 dark:text-zinc-500">
+          The Book · Wk {wager.line.week} · {wager.line.awayName} @ {wager.line.homeName}
+        </p>
+      </div>
+      <div className="flex flex-col items-end gap-1 shrink-0 text-right">
+        <span className="text-sm font-bold text-gray-800 dark:text-zinc-200">
+          {wager.stake.toLocaleString()} @ {wager.odds.toFixed(2)}x
+        </span>
+        {pending ? (
+          <span className="text-[10px] text-[#F4D06F]">
+            pays {Math.floor(wager.stake * wager.odds).toLocaleString()}
+          </span>
+        ) : (
+          <span
+            className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold capitalize ${
+              WAGER_STATUS_STYLE[wager.status]
+            }`}
+          >
+            {wager.status === "won" ? `+${wager.payout?.toLocaleString()}` : wager.status}
+          </span>
+        )}
+      </div>
+    </li>
+  );
+}
+
+function ActiveSection({
+  myWagers,
+  wagersLoading,
+  futuresData,
+  bets,
+  currentProfileId,
+  isOwner,
+  onAccept,
+  onSettle,
+}: {
+  myWagers: MyWager[];
+  wagersLoading: boolean;
+  futuresData: FuturesData | null;
+  bets: Bet[];
+  currentProfileId: number | null;
+  isOwner: boolean;
+  onAccept: (bet: Bet) => void;
+  onSettle: (bet: Bet) => void;
+}) {
+  const pendingWagers = myWagers.filter((w) => w.status === "pending");
+  const activeBets = bets.filter((b) => b.status === "accepted");
+  const openBets = bets.filter((b) => b.status === "open");
+
+  // Pending futures wagers, resolved to their market + option for display
+  const pendingFutures = (futuresData?.myWagers ?? [])
+    .filter((w) => w.status === "pending")
+    .map((w) => {
+      const future = futuresData?.futures.find((f) => f.id === w.futureId);
+      const option = future?.options.find((o) => o.id === w.optionId);
+      return { wager: w, future, option };
+    })
+    .filter((x) => x.future && x.option);
+
+  const inPlayCount = pendingWagers.length + activeBets.length + pendingFutures.length;
+
+  if (wagersLoading) {
+    return (
+      <div className="space-y-2 animate-pulse">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="h-16 rounded-2xl bg-gray-100 dark:bg-zinc-800/40" />
+        ))}
+      </div>
+    );
+  }
+
+  if (inPlayCount === 0 && openBets.length === 0) {
+    return (
+      <div className="hub-card p-8 text-center">
+        <p className="text-sm text-gray-400 dark:text-zinc-500">Nothing in play right now.</p>
+        <p className="mt-1 text-[11px] text-gray-400 dark:text-zinc-600">
+          Place a house wager in The Book or challenge a manager in H2H.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* In play — your house wagers + accepted peer bets */}
+      <section className="hub-card p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-zinc-100">In Play</h2>
+            <p className="text-[11px] text-gray-400 dark:text-zinc-500 mt-0.5">
+              Wagers and bets that are locked in
+            </p>
+          </div>
+          <span className="rounded-full bg-gray-100 dark:bg-zinc-800/60 px-2 py-0.5 text-[10px] text-gray-500 dark:text-zinc-400">
+            {inPlayCount}
+          </span>
+        </div>
+        {inPlayCount === 0 ? (
+          <p className="text-xs text-gray-400 dark:text-zinc-500 italic">Nothing locked in yet.</p>
+        ) : (
+          <ul className="space-y-2">
+            {pendingWagers.map((w) => (
+              <WagerRow key={w.id} wager={w} />
+            ))}
+            {pendingFutures.map(({ wager, future, option }) => (
+              <li key={wager.id} className="hub-inner-card flex items-center gap-3 rounded-xl px-4 py-3">
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-purple-500/10">
+                  <FiTrendingUp className="h-4 w-4 text-purple-400" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-gray-900 dark:text-zinc-100">
+                    {future!.kind === "champion" ? `${option!.label} — Champion` : `${future!.subjectName} · ${option!.label}`}
+                  </p>
+                  <p className="text-[11px] text-gray-400 dark:text-zinc-500">
+                    Futures · settles at season&apos;s end
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-sm font-bold text-gray-800 dark:text-zinc-200">
+                    {wager.stake.toLocaleString()} @ {wager.odds.toFixed(2)}x
+                  </p>
+                  <p className="text-[10px] text-[#F4D06F]">
+                    pays {Math.floor(wager.stake * wager.odds).toLocaleString()}
+                  </p>
+                </div>
+              </li>
+            ))}
+            {activeBets.map((bet) => (
+              <BetCard
+                key={bet.id}
+                bet={bet}
+                currentProfileId={currentProfileId}
+                isOwner={isOwner}
+                onAccept={onAccept}
+                onSettle={onSettle}
+              />
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {/* Waiting for an opponent — open peer bets anyone can accept */}
+      {openBets.length > 0 && (
+        <section className="hub-card p-5">
+          <div className="mb-3">
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-zinc-100">
+              Waiting for an Opponent
+            </h2>
+            <p className="text-[11px] text-gray-400 dark:text-zinc-500 mt-0.5">
+              Open challenges — take the other side
+            </p>
+          </div>
+          <ul className="space-y-2">
+            {openBets.map((bet) => (
+              <BetCard
+                key={bet.id}
+                bet={bet}
+                currentProfileId={currentProfileId}
+                isOwner={isOwner}
+                onAccept={onAccept}
+                onSettle={onSettle}
+              />
+            ))}
+          </ul>
+        </section>
+      )}
+    </div>
   );
 }
 
 // ─── Main Page ───────────────────────────────────────────────────────────
+// ─── Standings (coin leaderboard + records) ──────────────────────────────
+function StandingsSection({
+  standings,
+  loading,
+  currentProfileId,
+}: {
+  standings: Standing[] | null;
+  loading: boolean;
+  currentProfileId: number | null;
+}) {
+  if (loading) {
+    return (
+      <div className="space-y-2 animate-pulse">
+        {[...Array(6)].map((_, i) => (
+          <div key={i} className="h-16 rounded-2xl bg-gray-100 dark:bg-zinc-800/40" />
+        ))}
+      </div>
+    );
+  }
+
+  if (!standings || standings.length === 0) {
+    return (
+      <div className="hub-card p-8 text-center">
+        <p className="text-sm text-gray-400 dark:text-zinc-500">No standings yet.</p>
+        <p className="mt-1 text-[11px] text-gray-400 dark:text-zinc-600">
+          Standings appear once members start placing bets.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <section className="hub-card p-5">
+      <div className="mb-3">
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-zinc-100">Coin Standings</h2>
+        <p className="text-[11px] text-gray-400 dark:text-zinc-500 mt-0.5">
+          Wallet balances and betting records across the league
+        </p>
+      </div>
+      <ul className="space-y-1.5">
+        {standings.map((s, i) => {
+          const isMe = s.profileId === currentProfileId;
+          const houseRecord = `${s.house.wins}-${s.house.losses}${s.house.pushes > 0 ? `-${s.house.pushes}` : ""}`;
+          const p2pRecord = `${s.p2p.wins}-${s.p2p.losses}`;
+          return (
+            <li
+              key={s.profileId}
+              className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${
+                isMe
+                  ? "border-[#F4D06F]/40 bg-[#F4D06F]/5"
+                  : "border-gray-200 dark:border-zinc-800/50 bg-gray-50 dark:bg-zinc-900/40"
+              }`}
+            >
+              <span className={`w-6 shrink-0 text-center text-sm font-black ${i < 3 ? "text-[#F4D06F]" : "text-gray-400 dark:text-zinc-600"}`}>
+                {i + 1}
+              </span>
+              {s.profileImage ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={s.profileImage}
+                  alt={s.name}
+                  className="h-8 w-8 shrink-0 rounded-full border border-gray-200 dark:border-zinc-700 object-cover"
+                />
+              ) : (
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-200 dark:bg-zinc-800 text-[11px] font-bold text-gray-500 dark:text-zinc-400">
+                  {s.name[0]?.toUpperCase() ?? "?"}
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-gray-900 dark:text-zinc-100">
+                  {s.name}
+                  {isMe && <span className="ml-1.5 text-[10px] font-semibold text-[#F4D06F]">You</span>}
+                </p>
+                <p className="text-[11px] text-gray-400 dark:text-zinc-500">
+                  Book {houseRecord} · H2H {p2pRecord}
+                  {s.house.pending > 0 && (
+                    <>
+                      {" · "}
+                      <span className="text-amber-500 dark:text-amber-400">
+                        {s.house.pending.toLocaleString()} at risk
+                      </span>
+                    </>
+                  )}
+                </p>
+              </div>
+              {s.house.biggestWin > 0 && (
+                <div className="hidden sm:block shrink-0 text-right">
+                  <p className="text-xs font-semibold text-gray-700 dark:text-zinc-300">
+                    +{s.house.biggestWin.toLocaleString()}
+                  </p>
+                  <p className="text-[10px] text-gray-400 dark:text-zinc-600">best hit</p>
+                </div>
+              )}
+              <span
+                className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                  s.totalNet > 0
+                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500 dark:text-emerald-400"
+                    : s.totalNet < 0
+                      ? "border-red-500/30 bg-red-500/10 text-red-500 dark:text-red-400"
+                      : "border-zinc-500/30 bg-zinc-500/10 text-zinc-500 dark:text-zinc-400"
+                }`}
+              >
+                {s.totalNet > 0 ? "+" : ""}
+                {s.totalNet.toLocaleString()}
+              </span>
+              <div className="flex w-20 shrink-0 items-center justify-end gap-1">
+                <GiTwoCoins className="h-3.5 w-3.5 text-[#F4D06F]" />
+                <span className="text-sm font-black text-gray-900 dark:text-zinc-100">
+                  {s.balance.toLocaleString()}
+                </span>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="mt-3 text-[10px] text-gray-400 dark:text-zinc-600">
+        Net counts settled Book wagers and H2H/season bets. Pushes and voided lines refund the stake.
+      </p>
+    </section>
+  );
+}
+
 export default function BetsPage() {
   const params = useParams();
   const router = useRouter();
@@ -1009,21 +1738,30 @@ export default function BetsPage() {
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [bets, setBets] = useState<Bet[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<"season" | "h2h" | "book">("season");
+  const [tab, setTab] = useState<"active" | "book" | "h2h" | "season" | "standings">("active");
   const [showCreate, setShowCreate] = useState(false);
   const [settleBet, setSettleBet] = useState<Bet | null>(null);
   const [accepting, setAccepting] = useState<string | null>(null);
   const [book, setBook] = useState<Book | null>(null);
   const [bookLoading, setBookLoading] = useState(false);
   const [bookFetched, setBookFetched] = useState(false);
+  const [futuresData, setFuturesData] = useState<FuturesData | null>(null);
+  const [futuresLoading, setFuturesLoading] = useState(false);
+  const [futuresFetched, setFuturesFetched] = useState(false);
+  const [standings, setStandings] = useState<Standing[] | null>(null);
+  const [standingsLoading, setStandingsLoading] = useState(false);
+  const [standingsFetched, setStandingsFetched] = useState(false);
+  const [myWagers, setMyWagers] = useState<MyWager[]>([]);
+  const [wagersLoading, setWagersLoading] = useState(true);
 
   const loadData = useCallback(async () => {
     if (!hubLeagueId) return;
     try {
-      const [leagueRes, walletRes, betsRes] = await Promise.all([
+      const [leagueRes, walletRes, betsRes, wagersRes] = await Promise.all([
         fetch(`/api/hub-leagues/${hubLeagueId}`),
         fetch(`/api/hub-leagues/${hubLeagueId}/wallet`),
         fetch(`/api/hub-leagues/${hubLeagueId}/bets`),
+        fetch(`/api/hub-leagues/${hubLeagueId}/bets/my-wagers`),
       ]);
 
       if (!leagueRes.ok) {
@@ -1046,11 +1784,24 @@ export default function BetsPage() {
         const betsData = await betsRes.json();
         setBets(betsData.bets ?? []);
       }
+
+      if (wagersRes.ok) {
+        const wagersData = await wagersRes.json();
+        setMyWagers(wagersData.wagers ?? []);
+      }
     } catch (e: any) {
       setError(e?.message ?? "Unknown error");
     } finally {
       setLoading(false);
+      setWagersLoading(false);
     }
+  }, [hubLeagueId]);
+
+  const refreshMyWagers = useCallback(() => {
+    fetch(`/api/hub-leagues/${hubLeagueId}/bets/my-wagers`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.wagers) setMyWagers(d.wagers); })
+      .catch(() => {});
   }, [hubLeagueId]);
 
   useEffect(() => {
@@ -1070,6 +1821,32 @@ export default function BetsPage() {
       .finally(() => setBookLoading(false));
   }, [tab, bookFetched, hubLeagueId]);
 
+  // Load season futures once on mount — the unified Active view and the Book
+  // tab both read from this. First load may generate the markets (a few Sleeper
+  // round-trips); it runs off the critical path so the page stays responsive.
+  useEffect(() => {
+    if (futuresFetched || !hubLeagueId) return;
+    setFuturesFetched(true);
+    setFuturesLoading(true);
+    fetch(`/api/hub-leagues/${hubLeagueId}/futures`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setFuturesData(d))
+      .catch(() => setFuturesData(null))
+      .finally(() => setFuturesLoading(false));
+  }, [futuresFetched, hubLeagueId]);
+
+  // Lazy-load standings the first time the tab is opened
+  useEffect(() => {
+    if (tab !== "standings" || standingsFetched || !hubLeagueId) return;
+    setStandingsFetched(true);
+    setStandingsLoading(true);
+    fetch(`/api/hub-leagues/${hubLeagueId}/bets/leaderboard`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setStandings(d?.standings ?? null))
+      .catch(() => setStandings(null))
+      .finally(() => setStandingsLoading(false));
+  }, [tab, standingsFetched, hubLeagueId]);
+
   function handleWagerPlaced(lineId: string, wager: LineWager) {
     setBook((prev) =>
       prev
@@ -1080,6 +1857,19 @@ export default function BetsPage() {
             ),
           }
         : prev
+    );
+    // Refresh wallet
+    fetch(`/api/hub-leagues/${hubLeagueId}/wallet`)
+      .then((r) => r.json())
+      .then((d) => setWallet(d.wallet))
+      .catch(() => {});
+    // Keep the unified Active view in sync with the new wager
+    refreshMyWagers();
+  }
+
+  function handleFuturePlaced(wager: FutureWager) {
+    setFuturesData((prev) =>
+      prev ? { ...prev, myWagers: [...prev.myWagers, wager] } : prev
     );
     // Refresh wallet
     fetch(`/api/hub-leagues/${hubLeagueId}/wallet`)
@@ -1115,6 +1905,9 @@ export default function BetsPage() {
 
   function handleBetCreated(bet: Bet) {
     setBets((prev) => [bet, ...prev]);
+    // Jump to the tab matching the new bet so the creator always sees it — but
+    // the Active tab already lists open bets, so stay put when creating there.
+    if (tab !== "active" && (bet.type === "season" || bet.type === "h2h")) setTab(bet.type);
     // Refresh wallet
     fetch(`/api/hub-leagues/${hubLeagueId}/wallet`)
       .then((r) => r.json())
@@ -1198,6 +1991,7 @@ export default function BetsPage() {
       {showCreate && (
         <CreateBetModal
           hubLeagueId={hubLeagueId}
+          initialType={tab === "season" ? "season" : "h2h"}
           onClose={() => setShowCreate(false)}
           onCreated={handleBetCreated}
         />
@@ -1249,8 +2043,10 @@ export default function BetsPage() {
         </div>
         {[
           {
-            label: "Active",
-            value: bets.filter((b) => b.status === "open" || b.status === "accepted").length,
+            label: "In Play",
+            value:
+              bets.filter((b) => b.status === "accepted").length +
+              myWagers.filter((w) => w.status === "pending").length,
           },
           { label: "Won", value: totalWon, prefix: "+" },
           { label: "Lost", value: totalLost, prefix: "-" },
@@ -1266,26 +2062,34 @@ export default function BetsPage() {
       </div>
 
       {/* ─── Tab bar + New Bet ─────────────────────── */}
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex gap-1">
-          {(["season", "h2h", "book"] as const).map((t) => (
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <div className="flex gap-1 overflow-x-auto">
+          {(["active", "book", "h2h", "season", "standings"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`rounded-lg px-4 py-1.5 text-xs font-semibold transition ${
+              className={`shrink-0 rounded-lg px-3 sm:px-4 py-1.5 text-xs font-semibold transition ${
                 tab === t
                   ? "bg-[#F4D06F]/15 text-[#F4D06F] border border-[#F4D06F]/30"
                   : "text-gray-400 dark:text-zinc-500 hover:text-gray-600 dark:hover:text-zinc-300 border border-transparent"
               }`}
             >
-              {t === "season" ? "Season" : t === "h2h" ? "H2H" : "The Book"}
+              {t === "active"
+                ? "Active"
+                : t === "book"
+                ? "The Book"
+                : t === "h2h"
+                ? "H2H"
+                : t === "season"
+                ? "Season"
+                : "Standings"}
             </button>
           ))}
         </div>
-        {tab !== "book" && (
+        {(tab === "active" || tab === "season" || tab === "h2h") && (
           <button
             onClick={() => setShowCreate(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[#F4D06F]/30 bg-[#F4D06F]/5 px-3 py-1.5 text-[11px] font-medium text-[#F4D06F] hover:bg-[#F4D06F]/10 transition"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-[#F4D06F]/30 bg-[#F4D06F]/5 px-3 py-1.5 text-[11px] font-medium text-[#F4D06F] hover:bg-[#F4D06F]/10 transition"
           >
             <FiPlus className="h-3 w-3" />
             New Bet
@@ -1293,17 +2097,47 @@ export default function BetsPage() {
         )}
       </div>
 
-      {tab === "book" && (
-        <BookSection
-          book={book}
-          loading={bookLoading}
+      {tab === "active" && (
+        <ActiveSection
+          myWagers={myWagers}
+          wagersLoading={wagersLoading}
+          futuresData={futuresData}
+          bets={bets}
           currentProfileId={currentProfileId}
-          balance={wallet?.balance ?? null}
-          onPlaced={handleWagerPlaced}
+          isOwner={isOwner}
+          onAccept={handleAccept}
+          onSettle={setSettleBet}
         />
       )}
 
-      {tab !== "book" && (
+      {tab === "book" && (
+        <div className="space-y-4">
+          <FuturesSection
+            data={futuresData}
+            loading={futuresLoading}
+            balance={wallet?.balance ?? null}
+            hubLeagueId={hubLeagueId}
+            onPlaced={handleFuturePlaced}
+          />
+          <BookSection
+            book={book}
+            loading={bookLoading}
+            currentProfileId={currentProfileId}
+            balance={wallet?.balance ?? null}
+            onPlaced={handleWagerPlaced}
+          />
+        </div>
+      )}
+
+      {tab === "standings" && (
+        <StandingsSection
+          standings={standings}
+          loading={standingsLoading}
+          currentProfileId={currentProfileId}
+        />
+      )}
+
+      {(tab === "season" || tab === "h2h") && (
         <>
       {/* ─── Open Bets ─────────────────────────────── */}
       {openBets.length > 0 && (

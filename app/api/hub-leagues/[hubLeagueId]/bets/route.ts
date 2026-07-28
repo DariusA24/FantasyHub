@@ -60,10 +60,46 @@ export async function POST(
     }
 
     const body = await req.json();
-    const { type, title, description, amount, season, week } = body;
+    const { type, title, description, amount, season, week, terms } = body;
+    // H2H bets are non-currency: they carry custom free-text terms and a tracked
+    // record instead of escrowing coins. Season bets still use the coin economy.
+    const stakeType: "coins" | "terms" = type === "h2h" ? "terms" : "coins";
 
-    if (!type || !title || !amount || amount <= 0) {
+    if (!type || !title) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    if (stakeType === "terms") {
+      if (!terms || !String(terms).trim()) {
+        return NextResponse.json({ error: "Enter the stakes for this bet" }, { status: 400 });
+      }
+
+      const bet = await prisma.bet.create({
+        data: {
+          hubLeagueId,
+          creatorId: profile.id,
+          type,
+          stakeType,
+          title,
+          description: description || null,
+          terms: String(terms).trim(),
+          amount: 0,
+          season: season || null,
+          week: week || null,
+        },
+        include: {
+          creator: {
+            select: { id: true, username: true, firstName: true, lastName: true, profileImage: true },
+          },
+        },
+      });
+
+      return NextResponse.json({ bet }, { status: 201 });
+    }
+
+    // Coin-staked bet — escrow the stake from the creator's wallet
+    if (!amount || amount <= 0) {
+      return NextResponse.json({ error: "Enter a valid wager amount" }, { status: 400 });
     }
 
     const wallet = await prisma.wallet.findUnique({
@@ -85,6 +121,7 @@ export async function POST(
           hubLeagueId,
           creatorId: profile.id,
           type,
+          stakeType,
           title,
           description: description || null,
           amount,

@@ -55,21 +55,28 @@ export async function POST(
       return NextResponse.json({ error: "Invalid result" }, { status: 400 });
     }
 
-    const totalPot = bet.amount * 2;
-    const transactions: any[] = [
-      prisma.bet.update({
-        where: { id: betId },
-        data: { status: "settled", result, settledAt: new Date() },
-        include: {
-          creator: {
-            select: { id: true, username: true, firstName: true, lastName: true, profileImage: true },
-          },
-          taker: {
-            select: { id: true, username: true, firstName: true, lastName: true, profileImage: true },
-          },
+    const settleUpdate = prisma.bet.update({
+      where: { id: betId },
+      data: { status: "settled", result, settledAt: new Date() },
+      include: {
+        creator: {
+          select: { id: true, username: true, firstName: true, lastName: true, profileImage: true },
         },
-      }),
-    ];
+        taker: {
+          select: { id: true, username: true, firstName: true, lastName: true, profileImage: true },
+        },
+      },
+    });
+
+    // Terms (non-currency) bets carry no coins — settling just records who won
+    // for the head-to-head record.
+    if (bet.stakeType === "terms") {
+      const updatedBet = await settleUpdate;
+      return NextResponse.json({ bet: updatedBet });
+    }
+
+    const totalPot = bet.amount * 2;
+    const transactions: any[] = [settleUpdate];
 
     if (result === "push") {
       transactions.push(

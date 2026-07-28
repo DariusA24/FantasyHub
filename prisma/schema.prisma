@@ -38,6 +38,7 @@ model Profile {
   createdBets          Bet[]                     @relation("BetCreator")
   takenBets            Bet[]                     @relation("BetTaker")
   wagers               BetWager[]                @relation("ProfileWagers")
+  futureWagers         BetFutureWager[]          @relation("ProfileFutureWagers")
   startSitVotes        StartSitVote[]            @relation("StartSitVotes")
   predictionStat       UserPredictionStat?       @relation("PredictionStat")
   espnSwid             String?
@@ -45,6 +46,7 @@ model Profile {
   espnLeagues          EspnLeague[]              @relation("EspnLeagues")
   queuePostsCreated    LeagueQueuePost[]         @relation("QueuePostCreator")
   queueMemberships     LeagueQueueMember[]       @relation("QueuePostMembers")
+  marketListings       LeagueMarketListing[]     @relation("MarketListingCreator")
 }
 
 model sleeperProfile {
@@ -89,6 +91,7 @@ model HubLeague {
   wallets         Wallet[]
   bets            Bet[]
   betLines        BetLine[]
+  betFutures      BetFuture[]
 }
 
 model HubLeagueChampion {
@@ -390,9 +393,11 @@ model Bet {
   creatorId   Int
   takerId     Int?
   type        String    // "season" | "h2h"
+  stakeType   String    @default("coins") // "coins" (escrowed wallet stake) | "terms" (custom non-currency stakes)
   title       String
   description String?
-  amount      Int
+  terms       String?   // free-text stakes for "terms" bets, e.g. "loser buys lunch"
+  amount      Int       @default(0)
   status      String    @default("open") // "open" | "accepted" | "settled" | "cancelled"
   result      String?   // "creator" | "taker" | "push"
   season      String?
@@ -462,6 +467,74 @@ model BetWager {
 
   @@unique([lineId, profileId, pick])
   @@index([lineId])
+  @@index([profileId])
+}
+
+// ─── Season Futures (The Book) ───────────────────────────────────────────────
+// Auto-generated season-long house markets: league champion (outright) and
+// per-team regular-season win totals. Odds frozen at generation; bets close
+// once the regular season ends (closesWeek).
+
+model BetFuture {
+  id              String    @id @default(cuid())
+  hubLeagueId     String
+  sleeperLeagueId String
+  season          String
+  kind            String    // "champion" | "win_total"
+  title           String
+  subjectRosterId Int?      // win_total: the team; champion: null
+  subjectName     String?   // win_total: team display name
+  line            Float?    // win_total: the over/under win number
+  closesWeek      Int       // no new bets once NFL week >= this (regular season end)
+  status          String    @default("open") // "open" | "settled" | "void"
+  result          String?   // settlement: winning optionId (champion) or "over"/"under" (win_total)
+  finalValue      Float?    // actual final wins (win_total) — for display
+  settledAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  hubLeague HubLeague         @relation(fields: [hubLeagueId], references: [id], onDelete: Cascade)
+  options   BetFutureOption[]
+  wagers    BetFutureWager[]
+
+  @@unique([hubLeagueId, season, kind, subjectRosterId])
+  @@index([hubLeagueId])
+  @@index([status])
+}
+
+model BetFutureOption {
+  id        String   @id @default(cuid())
+  futureId  String
+  label     String
+  rosterId  Int?     // champion: the team; win_total: null
+  pick      String?  // win_total: "over" | "under"; champion: null
+  odds      Float    // decimal payout multiplier, frozen at generation
+  createdAt DateTime @default(now())
+
+  future BetFuture        @relation(fields: [futureId], references: [id], onDelete: Cascade)
+  wagers BetFutureWager[]
+
+  @@index([futureId])
+}
+
+model BetFutureWager {
+  id        String    @id @default(cuid())
+  futureId  String
+  optionId  String
+  profileId Int
+  stake     Int
+  odds      Float     // frozen at bet time
+  payout    Int?      // coins credited at settlement (0 = lost, stake = void)
+  status    String    @default("pending") // "pending" | "won" | "lost" | "void"
+  createdAt DateTime  @default(now())
+  settledAt DateTime?
+
+  future  BetFuture       @relation(fields: [futureId], references: [id], onDelete: Cascade)
+  option  BetFutureOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  profile Profile         @relation("ProfileFutureWagers", fields: [profileId], references: [id])
+
+  @@unique([optionId, profileId])
+  @@index([futureId])
   @@index([profileId])
 }
 
@@ -566,6 +639,38 @@ model LeagueQueueMember {
   @@unique([postId, profileId])
   @@index([postId])
   @@index([profileId])
+}
+
+// ─── League Marketplace Listings ──────────────────────────────────────────────
+// An open spot in (or a team for sale from) an existing league. When the league
+// is on Sleeper, sleeperLeagueId links its public /league/[id] page so browsers
+// can see the rosters, history, and champions.
+
+model LeagueMarketListing {
+  id               String   @id @default(cuid())
+  creatorId        Int
+  type             String   // "open-spot" | "want-out"
+  sleeperLeagueId  String?  // linked public Sleeper league
+  openSpotName     String?  // the team/manager slot being offered (open-spot)
+  leagueName       String
+  platform         String
+  format           String
+  scoring          String
+  teamCount        Int
+  entryFee         Int?
+  spotsAvailable   Int?     // open-spot listings
+  record           String?  // want-out listings
+  standingPosition Int?     // want-out listings
+  description      String
+  contact          String
+  status           String   @default("open") // "open" | "filled" | "cancelled"
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  creator Profile @relation("MarketListingCreator", fields: [creatorId], references: [id])
+
+  @@index([status, createdAt])
+  @@index([creatorId])
 }
 
 // ─── Feedback ─────────────────────────────────────────────────────────────────
