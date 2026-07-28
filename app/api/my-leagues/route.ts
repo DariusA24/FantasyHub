@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server";
-import { getAuthUser } from "@/utils/actions";
+import { currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/utils/db";
 import { getUserLeagues } from "@/utils/sleeperService";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/my-leagues — returns hub leagues the current user is a member of,
-// merged with leagues from their linked Sleeper account
+// merged with leagues from their linked Sleeper account. Guests get a 401 so
+// the tools can fall back to a locally-imported Sleeper account.
 export async function GET() {
   try {
-    const user = await getAuthUser();
+    const user = await currentUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const profile = await prisma.profile.findUnique({

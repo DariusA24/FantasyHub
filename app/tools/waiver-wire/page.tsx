@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FiArrowLeft, FiChevronDown, FiSearch } from "react-icons/fi";
+import { FiArrowLeft, FiChevronDown } from "react-icons/fi";
 
 import type { League } from "./types";
 import { KEY_POSITIONS, POS_TEXT } from "./types";
+import { useMyLeagues } from "@/lib/guestSleeper";
+import GuestSleeperConnect from "@/components/GuestSleeperConnect";
 
 // ─── Shared UI ────────────────────────────────────────────────────────────────
 function ToggleGroup<T extends string | number | boolean>({
@@ -97,59 +99,14 @@ export default function WaiverWirePage() {
   const [valueMap, setValueMap]   = useState<Map<string, PlayerValue>>(new Map());
   const [fcLoading, setFcLoading] = useState(false);
 
-  const [leagues, setLeagues]               = useState<League[]>([]);
+  const { leagues, isGuest, connect, disconnect } = useMyLeagues();
   const [selectedLeague, setSelectedLeague] = useState<League | null>(null);
   const [rosters, setRosters]               = useState<SleeperRoster[]>([]);
   const [leagueLoading, setLeagueLoading]   = useState(false);
 
-  // Guest state
-  const [isGuest, setIsGuest]                   = useState(false);
-  const [guestUsername, setGuestUsername]       = useState("");
-  const [guestLoading, setGuestLoading]         = useState(false);
-  const [guestError, setGuestError]             = useState("");
-  const guestInputRef                           = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    fetch("/api/my-leagues")
-      .then((r) => {
-        if (r.status === 401) { setIsGuest(true); return null; }
-        return r.json();
-      })
-      .then((d) => { if (d) setLeagues(d.leagues ?? []); });
-  }, []);
-
-  const lookupGuestLeagues = async () => {
-    const username = guestUsername.trim();
-    if (!username) return;
-    setGuestLoading(true);
-    setGuestError("");
-    try {
-      const userRes = await fetch(`/api/sleeper/user/${encodeURIComponent(username)}`);
-      if (!userRes.ok) { setGuestError("Sleeper username not found"); return; }
-      const user = await userRes.json();
-      if (!user?.user_id) { setGuestError("Sleeper username not found"); return; }
-
-      const leaguesRes = await fetch(
-        `https://api.sleeper.app/v1/user/${user.user_id}/leagues/nfl/2025`
-      );
-      const sleeperLeagues = await leaguesRes.json();
-      if (!Array.isArray(sleeperLeagues) || sleeperLeagues.length === 0) {
-        setGuestError("No 2025 leagues found for that username");
-        return;
-      }
-      setLeagues(
-        sleeperLeagues.map((l: any) => ({
-          id: l.league_id,
-          name: l.name,
-          role: "member",
-          latestSeason: { sleeperLeagueId: l.league_id, season: l.season },
-        }))
-      );
-    } catch {
-      setGuestError("Failed to load leagues — try again");
-    } finally {
-      setGuestLoading(false);
-    }
+  const handleDisconnect = () => {
+    disconnect();
+    setSelectedLeague(null);
   };
 
   useEffect(() => {
@@ -270,30 +227,11 @@ export default function WaiverWirePage() {
               onChange={(v) => setPpr(v as 0 | 0.5 | 1)}
             />
             {isGuest && leagues.length === 0 ? (
-              <div className="flex flex-col gap-1.5">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Sleeper Username</span>
-                <div className="flex gap-2">
-                  <input
-                    ref={guestInputRef}
-                    value={guestUsername}
-                    onChange={(e) => { setGuestUsername(e.target.value); setGuestError(""); }}
-                    onKeyDown={(e) => e.key === "Enter" && lookupGuestLeagues()}
-                    placeholder="your_sleeper_name"
-                    className="rounded-xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/60 px-3 py-2 text-xs text-zinc-700 dark:text-zinc-300 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-300 dark:focus:border-zinc-600 w-44"
-                  />
-                  <button
-                    onClick={lookupGuestLeagues}
-                    disabled={guestLoading || !guestUsername.trim()}
-                    className="flex items-center gap-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/60 px-3 py-2 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-700 disabled:opacity-40 transition-colors"
-                  >
-                    {guestLoading
-                      ? <span className="h-3 w-3 rounded-full border-2 border-zinc-300 dark:border-zinc-700 border-t-amber-500 animate-spin" />
-                      : <FiSearch className="h-3 w-3" />}
-                    {guestLoading ? "Loading…" : "Load"}
-                  </button>
-                </div>
-                {guestError && <p className="text-[10px] text-red-500">{guestError}</p>}
-              </div>
+              <GuestSleeperConnect
+                connectedName={null}
+                onConnect={connect}
+                onDisconnect={handleDisconnect}
+              />
             ) : (
               <div className="flex flex-col gap-1.5">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">League</span>
@@ -301,7 +239,7 @@ export default function WaiverWirePage() {
                   <LeagueDropdown leagues={leagues} selected={selectedLeague} onSelect={setSelectedLeague} />
                   {isGuest && (
                     <button
-                      onClick={() => { setLeagues([]); setSelectedLeague(null); setGuestUsername(""); }}
+                      onClick={handleDisconnect}
                       className="text-[10px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 underline underline-offset-2"
                     >
                       change
