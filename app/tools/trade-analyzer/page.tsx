@@ -17,6 +17,8 @@ import { TradeBalancer }     from "./components/TradeBalancer";
 import { TeamNeeds }         from "./components/TeamNeeds";
 import { AIOverview }        from "./components/AIOverview";
 import { PastTrades }        from "./components/PastTrades";
+import { useMyLeagues }      from "@/lib/guestSleeper";
+import GuestSleeperConnect   from "@/components/GuestSleeperConnect";
 
 export default function TradeAnalyzerPage() {
   const router = useRouter();
@@ -25,9 +27,13 @@ export default function TradeAnalyzerPage() {
   const [valuesLoading, setValuesLoading] = useState(false);
   const [valuesStale, setValuesStale] = useState(false);
 
-  const [leagues, setLeagues]                   = useState<League[]>([]);
+  const { leagues, sleeperUserId: mySleeperUserId, isGuest, connect, disconnect } = useMyLeagues();
   const [selectedLeague, setSelectedLeague]     = useState<League | null>(null);
-  const [mySleeperUserId, setMySleeperUserId]   = useState<string | null>(null);
+
+  const handleDisconnect = () => {
+    disconnect();
+    setSelectedLeague(null);
+  };
 
   // Free-mode state
   const [mySide, setMySide]     = useState<SelectedPlayer[]>([]);
@@ -43,15 +49,6 @@ export default function TradeAnalyzerPage() {
   const [mySelectedIds, setMySelectedIds]       = useState<Set<string>>(new Set());
   const [theirSelectedIds, setTheirSelectedIds] = useState<Set<string>>(new Set());
 
-  // Fetch leagues + sleeperUserId once
-  useEffect(() => {
-    fetch("/api/my-leagues")
-      .then((r) => r.json())
-      .then((d) => {
-        setLeagues(d.leagues ?? []);
-        if (d.sleeperUserId) setMySleeperUserId(d.sleeperUserId);
-      });
-  }, []);
 
   // Fetch FantasyCalc values on settings change
   useEffect(() => {
@@ -333,10 +330,28 @@ export default function TradeAnalyzerPage() {
               value={settings.ppr}
               onChange={(v) => updateSetting("ppr", v as 0 | 0.5 | 1)}
             />
-            <div className="flex flex-col gap-1.5 w-full sm:w-auto">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">League</span>
-              <LeagueDropdown leagues={leagues} selected={selectedLeague} onSelect={setSelectedLeague} />
-            </div>
+            {isGuest && leagues.length === 0 ? (
+              <GuestSleeperConnect
+                connectedName={null}
+                onConnect={connect}
+                onDisconnect={handleDisconnect}
+              />
+            ) : (
+              <div className="flex flex-col gap-1.5 w-full sm:w-auto">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">League</span>
+                <div className="flex items-center gap-2">
+                  <LeagueDropdown leagues={leagues} selected={selectedLeague} onSelect={setSelectedLeague} />
+                  {isGuest && (
+                    <button
+                      onClick={handleDisconnect}
+                      className="text-[10px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 underline underline-offset-2"
+                    >
+                      change
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
             {isLeagueMode && (
               <div className="flex flex-col gap-1.5 w-full sm:w-auto sm:min-w-[200px]">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Opponent</span>

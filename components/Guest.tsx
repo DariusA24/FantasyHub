@@ -1,6 +1,7 @@
 import { SignInButton, SignUpButton } from "@clerk/nextjs";
 import Link from "next/link";
 import React from "react";
+import GuestSleeperImport from "./GuestSleeperImport";
 import {
   FiRepeat,
   FiZap,
@@ -164,6 +165,9 @@ function Guest() {
 
             {/* Right — free tools grid */}
             <div className="flex-shrink-0 w-full md:w-[340px]">
+              <div className="mb-4">
+                <GuestSleeperImport />
+              </div>
               <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-3">
                 Free tools · no account needed
               </p>

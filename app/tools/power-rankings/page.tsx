@@ -8,6 +8,8 @@ import type { League, TeamData, SleeperPick } from "./types";
 import { KEY_POSITIONS, POS_TEXT } from "./types";
 import { LeagueChart } from "./components/LeagueChart";
 import { TeamTable }   from "./components/TeamTable";
+import { useMyLeagues } from "@/lib/guestSleeper";
+import GuestSleeperConnect from "@/components/GuestSleeperConnect";
 
 // ─── Shared UI ────────────────────────────────────────────────────────────────
 function ToggleGroup<T extends string | number | boolean>({
@@ -189,18 +191,17 @@ export default function PowerRankingsPage() {
   const [valueMap, setValueMap]   = useState<Map<string, PlayerValue>>(new Map());
   const [fcLoading, setFcLoading] = useState(false);
 
-  const [leagues, setLeagues]               = useState<League[]>([]);
+  const { leagues, isGuest, connect, disconnect } = useMyLeagues();
   const [selectedLeague, setSelectedLeague] = useState<League | null>(null);
   const [rosters, setRosters]               = useState<SleeperRoster[]>([]);
   const [userMap, setUserMap]               = useState<Record<string, SleeperUser>>({});
   const [pickOwnership, setPickOwnership]   = useState<Record<number, SleeperPick[]>>({});
   const [leagueLoading, setLeagueLoading]   = useState(false);
 
-  useEffect(() => {
-    fetch("/api/my-leagues")
-      .then((r) => r.json())
-      .then((d) => setLeagues(d.leagues ?? []));
-  }, []);
+  const handleDisconnect = () => {
+    disconnect();
+    setSelectedLeague(null);
+  };
 
   useEffect(() => {
     setFcLoading(true);
@@ -302,10 +303,28 @@ export default function PowerRankingsPage() {
               value={ppr}
               onChange={(v) => setPpr(v as 0 | 0.5 | 1)}
             />
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">League</span>
-              <LeagueDropdown leagues={leagues} selected={selectedLeague} onSelect={setSelectedLeague} />
-            </div>
+            {isGuest && leagues.length === 0 ? (
+              <GuestSleeperConnect
+                connectedName={null}
+                onConnect={connect}
+                onDisconnect={handleDisconnect}
+              />
+            ) : (
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">League</span>
+                <div className="flex items-center gap-2">
+                  <LeagueDropdown leagues={leagues} selected={selectedLeague} onSelect={setSelectedLeague} />
+                  {isGuest && (
+                    <button
+                      onClick={handleDisconnect}
+                      className="text-[10px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 underline underline-offset-2"
+                    >
+                      change
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           {loading && (
             <p className="mt-3 text-[11px] text-zinc-500 dark:text-zinc-600 flex items-center gap-1.5">

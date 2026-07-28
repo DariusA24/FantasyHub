@@ -15,6 +15,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/start-sit/(.*)',
   '/api/dynasty-rankings/(.*)',
   '/api/sleeper/(.*)',
+  '/api/my-leagues(.*)',
   '/api/trade-analyzer/(.*)',
   '/api/players/(.*)',
   '/api/scouting/(.*)',
