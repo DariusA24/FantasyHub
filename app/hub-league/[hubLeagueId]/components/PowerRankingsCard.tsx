@@ -1,16 +1,15 @@
 "use client";
 
-import Link from "next/link";
 import { FiBarChart2, FiChevronRight } from "react-icons/fi";
 import type { PowerRankingTeam } from "./types";
 
 type Props = {
   loaded: boolean;
   rankings: PowerRankingTeam[];
-  hubLeagueId?: string | null;
+  onViewFull?: () => void;
 };
 
-export function PowerRankingsCard({ loaded, rankings, hubLeagueId }: Props) {
+export function PowerRankingsCard({ loaded, rankings, onViewFull }: Props) {
   return (
     <section className="hub-card p-4">
       <div className="mb-3 flex items-center gap-2">
@@ -66,13 +65,13 @@ export function PowerRankingsCard({ loaded, rankings, hubLeagueId }: Props) {
         </ul>
       )}
 
-      {hubLeagueId && (
-        <Link
-          href={`/hub-league/${hubLeagueId}/power-rankings`}
+      {onViewFull && rankings.length > 0 && (
+        <button
+          onClick={onViewFull}
           className="mt-3 flex w-full items-center justify-center gap-1 rounded-xl border border-dashed border-zinc-800/60 py-2 text-[11px] text-gray-300 dark:text-zinc-600 hover:border-zinc-700/60 hover:text-gray-500 dark:hover:text-zinc-400 transition"
         >
           Full Power Rankings <FiChevronRight className="h-3 w-3" />
-        </Link>
+        </button>
       )}
     </section>
   );

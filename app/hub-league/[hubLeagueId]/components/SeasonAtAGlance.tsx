@@ -1,13 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { FiCalendar, FiChevronRight } from "react-icons/fi";
 import type { SeasonGlance } from "./types";
 
 type Props = {
   loaded: boolean;
   seasonGlance?: SeasonGlance;
-  hubLeagueId?: string | null;
+  onViewFull?: () => void;
 };
 
 function ordinalSuffix(n: number): string {
@@ -17,7 +16,7 @@ function ordinalSuffix(n: number): string {
   return "th";
 }
 
-export function SeasonAtAGlance({ loaded, seasonGlance, hubLeagueId }: Props) {
+export function SeasonAtAGlance({ loaded, seasonGlance, onViewFull }: Props) {
   const wins = seasonGlance?.wins ?? 0;
   const losses = seasonGlance?.losses ?? 0;
   const ties = seasonGlance?.ties ?? 0;
@@ -71,13 +70,13 @@ export function SeasonAtAGlance({ loaded, seasonGlance, hubLeagueId }: Props) {
         </>
       )}
 
-      {hubLeagueId && (
-        <Link
-          href={`/hub-league/${hubLeagueId}/standings`}
+      {onViewFull && (
+        <button
+          onClick={onViewFull}
           className="mt-3 flex w-full items-center justify-center gap-1 rounded-xl border border-dashed border-zinc-800/60 py-2 text-[11px] text-gray-300 dark:text-zinc-600 hover:border-zinc-700/60 hover:text-gray-500 dark:hover:text-zinc-400 transition"
         >
           Full Standings <FiChevronRight className="h-3 w-3" />
-        </Link>
+        </button>
       )}
     </section>
   );

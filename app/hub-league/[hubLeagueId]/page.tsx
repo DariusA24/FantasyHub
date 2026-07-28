@@ -8,13 +8,15 @@ import { LeagueNav } from "./LeagueNav";
 import { SeasonAtAGlance } from "./components/SeasonAtAGlance";
 import { WeekMatchup } from "./components/WeekMatchup";
 import { PowerRankingsCard } from "./components/PowerRankingsCard";
+import { LeagueTableModal } from "./components/LeagueTableModal";
 import { LeagueBlog } from "./components/LeagueBlog";
 import type { MatchupData, PowerRankingTeam } from "./components/types";
 import {
   FiUsers,
   FiShield,
   FiTrendingUp,
-  FiUser,
+  FiAward,
+  FiBarChart2,
   FiCalendar,
   FiChevronRight,
   FiRefreshCw,
@@ -131,6 +133,8 @@ export default function HubLeaguePage() {
   const [matchupLoaded, setMatchupLoaded] = useState(false);
   const [powerRankings, setPowerRankings] = useState<PowerRankingTeam[]>([]);
   const [powerRankingsLoaded, setPowerRankingsLoaded] = useState(false);
+  const [showStandings, setShowStandings] = useState(false);
+  const [showPowerRankings, setShowPowerRankings] = useState(false);
 
   useEffect(() => {
     if (!hubLeagueId) return;
@@ -331,6 +335,15 @@ export default function HubLeaguePage() {
     : null;
   const createdYear = new Date(hubLeague.createdAt).getFullYear();
 
+  // Standings = same teams as power rankings, re-sorted by record (ties = half win),
+  // with points-for as the tiebreaker.
+  const standings = [...powerRankings].sort((a, b) => {
+    const scoreA = a.wins + a.ties * 0.5;
+    const scoreB = b.wins + b.ties * 0.5;
+    if (scoreB !== scoreA) return scoreB - scoreA;
+    return b.pointsFor - a.pointsFor;
+  });
+
   const quickLinks = [
     {
       href: `/hub-league/${hubLeagueId}/roster`,
@@ -363,10 +376,10 @@ export default function HubLeaguePage() {
       iconColor: "text-purple-400",
     },
     {
-      href: `/manager`,
-      label: "Manager",
-      icon: FiUser,
-      description: "Your manager profile, grades, and recap",
+      href: `/hub-league/${hubLeagueId}/trophy-room`,
+      label: "Trophy Room",
+      icon: FiAward,
+      description: "League champions, awards, and hardware",
       gradient: "from-amber-950/70 to-amber-900/20",
       border: "border-amber-800/40 hover:border-amber-600/60",
       iconBg: "bg-amber-500/10",
@@ -493,7 +506,7 @@ export default function HubLeaguePage() {
           <SeasonAtAGlance
             loaded={matchupLoaded}
             seasonGlance={matchupData?.seasonGlance}
-            hubLeagueId={hubLeagueId}
+            onViewFull={standings.length > 0 ? () => setShowStandings(true) : undefined}
           />
           <WeekMatchup
             loaded={matchupLoaded}
@@ -503,9 +516,28 @@ export default function HubLeaguePage() {
           <PowerRankingsCard
             loaded={powerRankingsLoaded}
             rankings={powerRankings}
-            hubLeagueId={hubLeagueId}
+            onViewFull={() => setShowPowerRankings(true)}
           />
         </div>
+
+        {showStandings && (
+          <LeagueTableModal
+            title="Full Standings"
+            icon={FiCalendar}
+            accent="#F4D06F"
+            teams={standings}
+            onClose={() => setShowStandings(false)}
+          />
+        )}
+        {showPowerRankings && (
+          <LeagueTableModal
+            title="Full Power Rankings"
+            icon={FiBarChart2}
+            accent="#c084fc"
+            teams={powerRankings}
+            onClose={() => setShowPowerRankings(false)}
+          />
+        )}
 
         {/* ─── Quick Nav Cards ──────────────────────────────── */}
         <section className="mb-8">
