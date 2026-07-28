@@ -39,7 +39,8 @@ type HubLeagueMember = {
 
 type HubLeagueSeason = {
   id: string;
-  sleeperLeagueId: string;
+  sleeperLeagueId: string | null;
+  espnLeagueId: string | null;
   season: string;
   sleeperName: string | null;
   sleeperSport: string | null;
@@ -50,6 +51,8 @@ type HubLeague = {
   id: string;
   name: string;
   description?: string | null;
+  platform?: string;
+  isPublic?: boolean;
   createdAt: string;
   ownerId: number;
   owner: MemberProfile;
@@ -162,10 +165,30 @@ export default function HubLeaguePage() {
         if (data.hubLeague) {
           localStorage.setItem("recentHubLeague", JSON.stringify({ id: hubLeagueId, name: data.hubLeague.name }));
 
+          // ESPN-backed hubs load their overview (managers, commissioner,
+          // trades, matchup, power rankings) from a single ESPN endpoint.
+          const isEspnHub =
+            data.hubLeague.platform === "espn" ||
+            !!data.hubLeague.seasons?.[0]?.espnLeagueId;
+
           // Resolve Sleeper commissioner + fetch recent trades + matchup
           const latestSleeperLeagueId = data.hubLeague.seasons?.[0]?.sleeperLeagueId;
-          console.log("[matchup] latestSleeperLeagueId:", latestSleeperLeagueId);
-          if (latestSleeperLeagueId) {
+          if (isEspnHub) {
+            const ovRes = await fetch(`/api/hub-leagues/${hubLeagueId}/espn-overview`);
+            if (ovRes.ok) {
+              const ov = await ovRes.json();
+              if (Array.isArray(ov.managers)) setSleeperUsers(ov.managers);
+              if (ov.commissioner) {
+                setCommissionerName(ov.commissioner.display_name);
+                setCommissionerAvatar(ov.commissioner.avatar ?? null);
+              }
+              if (Array.isArray(ov.recentTrades)) setRecentTrades(ov.recentTrades);
+              if (ov.matchup) setMatchupData(ov.matchup);
+              if (Array.isArray(ov.powerRankings)) setPowerRankings(ov.powerRankings);
+            }
+            setMatchupLoaded(true);
+            setPowerRankingsLoaded(true);
+          } else if (latestSleeperLeagueId) {
             const [usersRes, tradesRes, matchupRes, powerRankingsRes] = await Promise.all([
               fetch(`/api/sleeper/league/${latestSleeperLeagueId}/users`),
               fetch(`/api/sleeper/league/${latestSleeperLeagueId}/trades`),
@@ -326,14 +349,26 @@ export default function HubLeaguePage() {
 
   // ─── Derived data ─────────────────────────────────────────
   const latestSeason = hubLeague.seasons[0];
+  const isEspn = hubLeague.platform === "espn" || !!latestSeason?.espnLeagueId;
+  const espnLeagueId = latestSeason?.espnLeagueId ?? null;
+  const espnSeasonQ = latestSeason?.season ? `?season=${latestSeason.season}` : "";
   const sport = latestSeason?.sleeperSport
     ? SPORT_LABEL[latestSeason.sleeperSport.toLowerCase()] ?? latestSeason.sleeperSport.toUpperCase()
     : null;
   const createdYear = new Date(hubLeague.createdAt).getFullYear();
 
+  // ESPN hubs reuse the existing ESPN roster/franchise pages rather than the
+  // Sleeper-coupled hub subpages.
+  const rosterHref = isEspn && espnLeagueId
+    ? `/espn/${espnLeagueId}/rosters${espnSeasonQ}`
+    : `/hub-league/${hubLeagueId}/roster`;
+  const franchiseHref = isEspn && espnLeagueId
+    ? `/espn/${espnLeagueId}/franchise${espnSeasonQ}`
+    : `/hub-league/${hubLeagueId}/franchise`;
+
   const quickLinks = [
     {
-      href: `/hub-league/${hubLeagueId}/roster`,
+      href: rosterHref,
       label: "Roster",
       icon: FiUsers,
       description: "Your active lineup and depth chart",
@@ -343,7 +378,7 @@ export default function HubLeaguePage() {
       iconColor: "text-emerald-400",
     },
     {
-      href: `/hub-league/${hubLeagueId}/franchise`,
+      href: franchiseHref,
       label: "Franchise",
       icon: FiShield,
       description: "Settings, awards, and franchise history",
@@ -462,7 +497,7 @@ export default function HubLeaguePage() {
                 <p className="text-sm font-semibold text-zinc-100 truncate">
                   {hubLeague.owner.firstName} {hubLeague.owner.lastName}
                 </p>
-                {isOwner && (
+                {isOwner && !isEspn && (
                   <p className="text-[10px] text-zinc-600 mt-0.5">
                     {syncSuccess ? (
                       <span className="text-emerald-500">Synced just now</span>
@@ -474,7 +509,7 @@ export default function HubLeaguePage() {
                   </p>
                 )}
               </div>
-              {isOwner && (
+              {isOwner && !isEspn && (
                 <button
                   onClick={handleSync}
                   disabled={syncing}
@@ -555,7 +590,9 @@ export default function HubLeaguePage() {
                 {sleeperUsers.map((u) => (
                   <li key={u.user_id}>
                     <Link
-                      href={`/hub-league/${hubLeagueId}/franchise?sleeperUserId=${u.user_id}`}
+                      href={isEspn && espnLeagueId
+                        ? `/espn/${espnLeagueId}/franchise${espnSeasonQ}`
+                        : `/hub-league/${hubLeagueId}/franchise?sleeperUserId=${u.user_id}`}
                       className="hub-inner-card flex items-center gap-2 rounded-xl px-2.5 py-2 hover:bg-zinc-800/60 transition-colors"
                     >
                       {u.avatar ? (
@@ -619,7 +656,7 @@ export default function HubLeaguePage() {
             )}
           </section>
 
-          <LeagueBlog apiBase={`/api/hub-leagues/${hubLeagueId}`} />
+          <LeagueBlog apiBase={isEspn && espnLeagueId ? `/api/espn/league/${espnLeagueId}` : `/api/hub-leagues/${hubLeagueId}`} />
 
           {/* Recent Activity */}
           <section className="md:col-span-2 hub-card p-5">

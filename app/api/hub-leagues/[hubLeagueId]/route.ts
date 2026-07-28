@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAuthUser } from "@/utils/actions";
+import { getAuthUser, getOptionalAuthUser } from "@/utils/actions";
 import { prisma } from "@/utils/db";
 
 export async function GET(
@@ -18,23 +18,16 @@ export async function GET(
   }
 
   try {
-    const user = await getAuthUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    // Public (ESPN) hubs are browsable by guests, so auth is optional here.
+    const user = await getOptionalAuthUser();
 
-    // Get profile for current user
-    const profile = await prisma.profile.findUnique({
-      where: { clerkId: user.id },
-      select: { id: true, sleeperProfileId: true },
-    });
-
-    if (!profile) {
-      return NextResponse.json(
-        { error: "Profile not found for user" },
-        { status: 404 }
-      );
-    }
+    // Get profile for current user (null for guests)
+    const profile = user
+      ? await prisma.profile.findUnique({
+          where: { clerkId: user.id },
+          select: { id: true, sleeperProfileId: true },
+        })
+      : null;
 
     // Load hub league with owner + members + seasons
     const hubLeague = await prisma.hubLeague.findUnique({
@@ -76,14 +69,19 @@ export async function GET(
       );
     }
 
-    const isOwner = hubLeague.ownerId === profile.id;
+    const isOwner = !!profile && hubLeague.ownerId === profile.id;
 
     // Membership check via HubLeagueMember
-    const isMember = hubLeague.members.some(
+    const isMember = !!profile && hubLeague.members.some(
       (m) => m.profileId === profile.id
     );
 
-    if (!isOwner && !isMember) {
+    // Private (Sleeper) hubs are gated to owner + members; public (ESPN) hubs
+    // are browsable by anyone, including signed-out guests.
+    if (!hubLeague.isPublic && !isOwner && !isMember) {
+      if (!user) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
       return NextResponse.json(
         { error: "Forbidden: not invited to this hub league" },
         { status: 403 }
@@ -100,7 +98,8 @@ export async function GET(
     return NextResponse.json({
       hubLeague,
       isOwner,
-      sleeperProfileId: profile.sleeperProfileId ?? null,
+      isMember,
+      sleeperProfileId: profile?.sleeperProfileId ?? null,
       lastSyncedAt: lastAward?.updatedAt ?? null,
     }, { status: 200 });
   } catch (err) {

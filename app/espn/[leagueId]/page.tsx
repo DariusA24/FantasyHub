@@ -6,6 +6,7 @@ import { LeagueBlog } from '@/app/hub-league/[hubLeagueId]/components/LeagueBlog
 import { loadEspnLeague, POS_COLORS } from './espnData';
 import { EspnPrivateNotice } from './EspnStates';
 import EspnSeasonPicker from './EspnSeasonPicker';
+import EspnHubLeagueButton from './EspnHubLeagueButton';
 
 export default async function EspnLeaguePage({
   params,
@@ -46,7 +47,10 @@ export default async function EspnLeaguePage({
             <FiArrowLeft className="h-3.5 w-3.5" />
             Back to profile
           </Link>
-          <EspnSeasonPicker current={season} seasons={availableSeasons} />
+          <div className="flex items-center gap-2">
+            <EspnHubLeagueButton leagueId={leagueId} leagueName={leagueName} season={season} />
+            <EspnSeasonPicker current={season} seasons={availableSeasons} />
+          </div>
         </div>
 
         {/* ─── Hero ─────────────────────────────────────────── */}

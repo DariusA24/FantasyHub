@@ -5,6 +5,7 @@ import { auth } from '@clerk/nextjs/server';
 import { FiAward, FiTrendingUp, FiUsers, FiShield, FiStar, FiCalendar, FiZap, FiTarget, FiChevronDown } from 'react-icons/fi';
 import { prisma } from '@/utils/db';
 import { getGlobalLeaderboard, getTierStyle, type GlobalRank, type LeaderboardEntry } from '@/utils/computeLeagueShelfRank';
+import { loadEspnFranchises } from '@/app/espn/[leagueId]/espnData';
 import {
   getSleeperUserById,
   getUserLeagues,
@@ -46,6 +47,82 @@ const POSITION_COLORS: Record<string, string> = {
   K:  'bg-zinc-500/10 text-zinc-500 dark:text-zinc-400',
 };
 
+type EspnCareer = {
+  totalLeagues: number;
+  wins: number;
+  losses: number;
+  pointsFor: number;
+  pointsAgainst: number;
+  championshipSeasons: string[];
+  playoffAppearances: number;
+  history: LeagueHistory;
+};
+
+const EMPTY_ESPN_CAREER: EspnCareer = {
+  totalLeagues: 0, wins: 0, losses: 0, pointsFor: 0, pointsAgainst: 0,
+  championshipSeasons: [], playoffAppearances: 0, history: {},
+};
+
+// Career stats from the profile owner's ESPN leagues. Uses their stored
+// credentials (not the viewer's) so a public manager page renders their ESPN
+// leagues the same way it renders public Sleeper leagues. The SWID is what maps
+// an ESPN franchise to this manager — without it we can't identify their team.
+async function loadEspnCareer(profile: { id: number; espnSwid: string | null; espnS2: string | null }): Promise<EspnCareer> {
+  if (!profile.espnSwid) return EMPTY_ESPN_CAREER;
+
+  const rows = await prisma.espnLeague.findMany({
+    where: { profileId: profile.id },
+    select: { leagueId: true },
+  });
+  const uniqueIds = [...new Set(rows.map((l) => l.leagueId))];
+  if (uniqueIds.length === 0) return EMPTY_ESPN_CAREER;
+
+  const espnAuth = {
+    cookie: profile.espnSwid && profile.espnS2
+      ? `SWID=${profile.espnSwid}; espn_s2=${profile.espnS2}`
+      : undefined,
+    swid: profile.espnSwid,
+  };
+
+  // loadEspnFranchises discovers every season the league existed from the
+  // newest one, so seed it with the latest season we track.
+  const results = await Promise.allSettled(
+    uniqueIds.map((id) => loadEspnFranchises(id, SEASONS[0], espnAuth)),
+  );
+
+  const career: EspnCareer = {
+    ...EMPTY_ESPN_CAREER, championshipSeasons: [], history: {},
+  };
+
+  results.forEach((r, i) => {
+    if (r.status !== 'fulfilled' || 'error' in r.value) return;
+    const { leagueName, franchises, myOwnerId } = r.value.data;
+    if (!myOwnerId) return;
+    const mine = franchises.find((f) => f.ownerId === myOwnerId);
+    if (!mine || mine.seasons.length === 0) return;
+
+    career.totalLeagues += 1;
+    career.wins += mine.wins;
+    career.losses += mine.losses;
+    career.pointsFor += mine.pf;
+    career.pointsAgainst += mine.pa;
+
+    for (const s of mine.seasons) {
+      if (s.champion) career.championshipSeasons.push(s.season);
+      if (s.seed != null) career.playoffAppearances += 1;
+      if (!career.history[s.season]) career.history[s.season] = [];
+      career.history[s.season].push({
+        league: { name: leagueName, sport: 'nfl', league_id: `espn-${uniqueIds[i]}` },
+        record: { wins: s.wins, losses: s.losses, ties: s.ties },
+        isChampion: s.champion,
+      });
+    }
+  });
+
+  career.championshipSeasons.sort((a, b) => Number(b) - Number(a));
+  return career;
+}
+
 async function loadManagerData(username: string) {
   const profile = await prisma.profile.findUnique({
     where: { username },
@@ -58,6 +135,8 @@ async function loadManagerData(username: string) {
       profileImage: true,
       bio: true,
       sleeperProfileId: true,
+      espnSwid: true,
+      espnS2: true,
     },
   });
   if (!profile) return null;
@@ -78,7 +157,22 @@ async function loadManagerData(username: string) {
   const bestWeek = bestWeekAgg._max.highWeek;
 
   if (!profile.sleeperProfileId) {
-    return { profile, sleeperUser: null, careerStats: null, leagueHistory: {} as LeagueHistory, mostDrafted: [], awards, predictionStat, bestWeek, globalRank: null as GlobalRank | null, leaderboardRows: [] as LeaderboardRow[] };
+    // No Sleeper link, but the manager may still have ESPN leagues — build
+    // career stats from those alone.
+    const espn = await loadEspnCareer(profile);
+    const espnGames = espn.wins + espn.losses;
+    const careerStats = espn.totalLeagues > 0 ? {
+      totalLeagues: espn.totalLeagues,
+      totalWins: espn.wins,
+      totalLosses: espn.losses,
+      winRate: espnGames > 0 ? Math.round((espn.wins / espnGames) * 100) : 0,
+      pointsFor: espn.pointsFor,
+      pointsAgainst: espn.pointsAgainst,
+      championships: espn.championshipSeasons.length,
+      championshipSeasons: espn.championshipSeasons,
+      playoffAppearances: espn.playoffAppearances,
+    } : null;
+    return { profile, sleeperUser: null, careerStats, leagueHistory: espn.history, mostDrafted: [], awards, predictionStat, bestWeek, globalRank: null as GlobalRank | null, leaderboardRows: [] as LeaderboardRow[] };
   }
 
   const sleeperUserId = profile.sleeperProfileId;
@@ -255,19 +349,32 @@ async function loadManagerData(username: string) {
     leagueHistory[league.season].push({ league, record, isChampion });
   }
 
+  // Fold in ESPN leagues so career stats span both platforms.
+  const espn = await loadEspnCareer(profile);
+  for (const [season, entries] of Object.entries(espn.history)) {
+    if (!leagueHistory[season]) leagueHistory[season] = [];
+    leagueHistory[season].push(...entries);
+  }
+
+  const combinedWins = totalWins + espn.wins;
+  const combinedLosses = totalLosses + espn.losses;
+  const combinedGames = combinedWins + combinedLosses;
+  const combinedChampionshipSeasons = [...championshipSeasons, ...espn.championshipSeasons]
+    .sort((a, b) => Number(b) - Number(a));
+
   return {
     profile,
     sleeperUser: sleeperUser.status === 'fulfilled' ? sleeperUser.value : null,
     careerStats: {
-      totalLeagues: allLeagues.length,
-      totalWins,
-      totalLosses,
-      winRate: totalGames > 0 ? Math.round((totalWins / totalGames) * 100) : 0,
-      pointsFor: totalPointsFor,
-      pointsAgainst: totalPointsAgainst,
-      championships: championshipSeasons.length,
-      championshipSeasons,
-      playoffAppearances,
+      totalLeagues: allLeagues.length + espn.totalLeagues,
+      totalWins: combinedWins,
+      totalLosses: combinedLosses,
+      winRate: combinedGames > 0 ? Math.round((combinedWins / combinedGames) * 100) : 0,
+      pointsFor: totalPointsFor + espn.pointsFor,
+      pointsAgainst: totalPointsAgainst + espn.pointsAgainst,
+      championships: combinedChampionshipSeasons.length,
+      championshipSeasons: combinedChampionshipSeasons,
+      playoffAppearances: playoffAppearances + espn.playoffAppearances,
     },
     leagueHistory,
     mostDrafted,

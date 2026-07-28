@@ -37,6 +37,9 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
     if (!hubSeason) {
       return NextResponse.json({ error: `No season found for ${season}` }, { status: 404 });
     }
+    if (!hubSeason.sleeperLeagueId) {
+      return NextResponse.json({ error: "Awards are only available for Sleeper seasons" }, { status: 400 });
+    }
 
     const count = await computeAwardsForSeason(hubLeagueId, hubSeason.sleeperLeagueId, String(season));
 

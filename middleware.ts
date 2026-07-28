@@ -16,6 +16,12 @@ const isPublicRoute = createRouteMatcher([
   '/api/hub-leagues/(.*)/champions',
   '/api/hub-leagues/(.*)/awards',
   '/api/hub-leagues/(.*)/manager-profile',
+  // Public (ESPN) hub leagues are browsable by guests. The page shell + detail
+  // GET + ESPN overview are public; private (Sleeper) hubs are gated in-handler
+  // (the detail GET returns 401/403), and writes stay auth-checked in-handler.
+  '/hub-league/(.*)',
+  '/api/hub-leagues/:hubLeagueId',
+  '/api/hub-leagues/(.*)/espn-overview',
   '/hub-league/demo(.*)',
   '/api/hub-leagues/demo(.*)',
   '/api/hub-league-season/demo(.*)',

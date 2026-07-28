@@ -171,6 +171,9 @@ function HomeDashboard() {
 
   const firstName = user?.firstName ?? userProfile?.firstName ?? "";
 
+  // Win rate spans every linked platform. Sleeper records come from the
+  // dashboard API; ESPN records ride along on the season cards as "w-l-t"
+  // strings, so parse those into the same running total.
   const { totalWins, totalLosses } = Object.values(leagueRecords).reduce(
     (acc, rec) => {
       acc.totalWins += rec.wins;
@@ -180,8 +183,24 @@ function HomeDashboard() {
     { totalWins: 0, totalLosses: 0 }
   );
 
-  const totalGames = totalWins + totalLosses;
-  const winRate = totalGames > 0 ? (totalWins / totalGames) * 100 : 0;
+  const espnTotals = espnSeasonCards.reduce(
+    (acc, card) => {
+      if (!card.record) return acc;
+      const [wins, losses] = card.record.split("-").map((n) => Number(n) || 0);
+      acc.totalWins += wins;
+      acc.totalLosses += losses;
+      return acc;
+    },
+    { totalWins: 0, totalLosses: 0 }
+  );
+
+  const combinedWins = totalWins + espnTotals.totalWins;
+  const combinedLosses = totalLosses + espnTotals.totalLosses;
+  const totalGames = combinedWins + combinedLosses;
+  const winRate = totalGames > 0 ? (combinedWins / totalGames) * 100 : 0;
+
+  // Leagues joined counts both platforms for the selected season.
+  const totalLeaguesJoined = leaguesJoinedCount + espnSeasonCards.length;
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-[#05060a]">
@@ -321,7 +340,7 @@ function HomeDashboard() {
             At a Glance
           </p>
           <StatsRow
-            leaguesJoinedCount={leaguesJoinedCount}
+            leaguesJoinedCount={totalLeaguesJoined}
             winRate={winRate}
             leagueShelfRank={hubRank && hubRank.tier !== "Unranked" ? hubRank.tier : undefined}
           />

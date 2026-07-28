@@ -56,18 +56,23 @@ export async function GET(_req: Request, ctx: RouteContext) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    if (hubLeague.seasons.length === 0) {
+    // Sleeper-history is Sleeper-only; skip any ESPN-backed seasons.
+    const sleeperSeasons = hubLeague.seasons.filter(
+      (s): s is typeof s & { sleeperLeagueId: string } => !!s.sleeperLeagueId
+    );
+
+    if (sleeperSeasons.length === 0) {
       return NextResponse.json({ seasons: [] });
     }
 
     // Collect all already-known Sleeper league IDs to avoid re-fetching
     const knownSeasons = new Map<string, string>(
-      hubLeague.seasons.map((s) => [s.sleeperLeagueId, s.season])
+      sleeperSeasons.map((s) => [s.sleeperLeagueId, s.season])
     );
 
     // Discovered seasons: leagueId → { season, name }
     const discovered = new Map<string, { season: string; sleeperName: string }>(
-      hubLeague.seasons.map((s) => [
+      sleeperSeasons.map((s) => [
         s.sleeperLeagueId,
         { season: s.season, sleeperName: s.sleeperName ?? "" },
       ])
@@ -78,7 +83,7 @@ export async function GET(_req: Request, ctx: RouteContext) {
     const visited = new Set<string>(discovered.keys());
 
     // Start from the most recent known league (highest year)
-    const sortedStart = [...hubLeague.seasons].sort(
+    const sortedStart = [...sleeperSeasons].sort(
       (a, b) => Number(b.season) - Number(a.season)
     );
 

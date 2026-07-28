@@ -336,8 +336,15 @@ export type EspnFranchisesResult =
 
 const MAX_FRANCHISE_SEASONS = 12;
 
-export async function loadEspnFranchises(leagueId: string, startSeason: string): Promise<EspnFranchisesResult> {
-  const { cookie: cookieHeader, swid } = await resolveEspnAuth();
+export async function loadEspnFranchises(
+  leagueId: string,
+  startSeason: string,
+  // Public pages (e.g. a manager profile) pass the profile owner's stored
+  // credentials so their ESPN leagues resolve correctly regardless of who is
+  // viewing. When omitted, falls back to the signed-in viewer's auth.
+  authOverride?: { cookie?: string; swid?: string },
+): Promise<EspnFranchisesResult> {
+  const { cookie: cookieHeader, swid } = authOverride ?? (await resolveEspnAuth());
 
   const first = await fetchLeague(leagueId, startSeason, cookieHeader);
   if ('error' in first) return first;

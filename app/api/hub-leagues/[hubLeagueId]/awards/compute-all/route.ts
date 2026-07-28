@@ -59,23 +59,28 @@ export async function POST(_req: Request, ctx: RouteContext) {
       return NextResponse.json({ error: "Only the hub league owner can sync" }, { status: 403 });
     }
 
-    if (hubLeague.seasons.length === 0) {
+    // Awards are Sleeper-only; ignore any ESPN-backed seasons on this hub.
+    const sleeperSeasons = hubLeague.seasons.filter(
+      (s): s is typeof s & { sleeperLeagueId: string } => !!s.sleeperLeagueId
+    );
+
+    if (sleeperSeasons.length === 0) {
       return NextResponse.json({ error: "No Sleeper seasons linked to this hub league" }, { status: 400 });
     }
 
     // Build the known season map and traverse the Sleeper previous_league_id chain
     // to discover earlier seasons that belong to the same group of managers.
     const allSeasons = new Map<string, string>(
-      hubLeague.seasons.map((s) => [s.sleeperLeagueId, s.season])
+      sleeperSeasons.map((s) => [s.sleeperLeagueId, s.season])
     );
     const visited = new Set<string>(allSeasons.keys());
 
     // Fetch the roster owners of the most recent season — used to detect when
     // the traversal has gone back far enough to hit a different group's era.
-    const newestSeasonId = hubLeague.seasons[0].sleeperLeagueId;
+    const newestSeasonId = sleeperSeasons[0].sleeperLeagueId;
     const currentOwners = await fetchRosterOwners(newestSeasonId);
 
-    const sortedKnown = [...hubLeague.seasons].sort(
+    const sortedKnown = [...sleeperSeasons].sort(
       (a, b) => Number(b.season) - Number(a.season)
     );
 

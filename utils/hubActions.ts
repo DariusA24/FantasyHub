@@ -35,10 +35,22 @@ export async function fetchHubLeaguesForSleeperLeague(
   sleeperLeagueId: string,
   previousLeagueId?: string | null
 ): Promise<HubLeague[]> {
+  const params = new URLSearchParams({ sleeperLeagueId });
+  if (previousLeagueId) params.set('previousLeagueId', previousLeagueId);
+  return fetchHubLeaguesWithParams(params);
+}
+
+export async function fetchHubLeaguesForEspnLeague(
+  espnLeagueId: string
+): Promise<HubLeague[]> {
+  return fetchHubLeaguesWithParams(new URLSearchParams({ espnLeagueId }));
+}
+
+async function fetchHubLeaguesWithParams(
+  params: URLSearchParams
+): Promise<HubLeague[]> {
   let res: Response;
   try {
-    const params = new URLSearchParams({ sleeperLeagueId });
-    if (previousLeagueId) params.set('previousLeagueId', previousLeagueId);
     res = await fetch(`/api/hub-leagues?${params.toString()}`);
   } catch (e: any) {
     throw new Error(`Failed to reach /api/hub-leagues: ${e?.message ?? String(e)}`);
@@ -129,6 +141,52 @@ export async function createHubLeagueForSleeperLeague(
         name: league.name,
         description: `Hub league for Sleeper league ${league.name} (${league.season})`,
         previousLeagueId: league.previous_league_id ?? null,
+      }),
+    });
+  } catch (e: any) {
+    throw new Error(`Failed to reach /api/hub-leagues (POST): ${e?.message ?? String(e)}`);
+  }
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(body || `HTTP ${res.status} ${res.statusText}`);
+  }
+
+  const data = await res.json().catch((e: any) => {
+    throw new Error(`Invalid JSON from /api/hub-leagues (POST): ${e?.message ?? String(e)}`);
+  });
+
+  const created: HubLeague | undefined =
+    data?.hubLeague ?? data?.hub_league ?? data?.data?.hubLeague ?? data?.data?.hub_league;
+
+  if (!created) {
+    throw new Error("API did not return 'hubLeague' in response");
+  }
+
+  return created;
+}
+
+export type EspnLeagueForHub = {
+  leagueId: string;
+  name: string;
+  season: string;
+  sport?: string;
+};
+
+export async function createHubLeagueForEspnLeague(
+  league: EspnLeagueForHub
+): Promise<HubLeague> {
+  let res: Response;
+  try {
+    res = await fetch("/api/hub-leagues", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        espnLeagueId: league.leagueId,
+        season: league.season,
+        sleeperSport: league.sport ?? "nfl",
+        name: league.name,
+        description: `Hub league for ESPN league ${league.name} (${league.season})`,
       }),
     });
   } catch (e: any) {

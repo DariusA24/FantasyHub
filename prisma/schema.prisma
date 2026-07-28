@@ -75,6 +75,8 @@ model HubLeague {
   id          String            @id @default(cuid())
   name        String
   description String?
+  platform    String            @default("sleeper") // "sleeper" | "espn"
+  isPublic    Boolean           @default(false)     // ESPN hubs are publicly browsable
   punishment  String?           // last-place punishment displayed on the bets page
   ownerId     Int
   owner       Profile           @relation(fields: [ownerId], references: [id])
@@ -174,7 +176,8 @@ model HubLeagueSeason {
   id              String    @id @default(cuid())
   hubLeagueId     String
   hubLeague       HubLeague @relation(fields: [hubLeagueId], references: [id])
-  sleeperLeagueId String
+  sleeperLeagueId String?   // set for Sleeper-backed seasons
+  espnLeagueId    String?   // set for ESPN-backed seasons
   season          String
   sleeperName     String?
   sleeperSport    String?
@@ -182,6 +185,7 @@ model HubLeagueSeason {
   updatedAt       DateTime  @updatedAt
 
   @@index([sleeperLeagueId])
+  @@index([espnLeagueId])
   @@index([hubLeagueId, season])
 }
 

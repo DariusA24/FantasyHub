@@ -12,6 +12,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const {
       sleeperLeagueId,
+      espnLeagueId,       // optional: set for ESPN-backed hub leagues
       sleeperName,
       sleeperSport,
       season,
@@ -21,7 +22,8 @@ export async function POST(req: Request) {
       previousLeagueId,   // optional: Sleeper's previous_league_id for auto carry-over
     } = body ?? {};
 
-    if (!sleeperLeagueId || !season || !name) {
+    // Either a Sleeper league or an ESPN league must be provided.
+    if ((!sleeperLeagueId && !espnLeagueId) || !season || !name) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -49,23 +51,122 @@ export async function POST(req: Request) {
       );
     }
 
-    // NEW: check if user already has a hub league season for this Sleeper league
+    // ─── ESPN-backed hub leagues ────────────────────────────────────────────
+    // An ESPN league maps to exactly ONE public hub league globally. If one
+    // already exists (any owner), join it as a member instead of duplicating;
+    // otherwise create a new public hub league. Mirrors the Sleeper canonical
+    // logic below, keyed on espnLeagueId.
+    if (espnLeagueId) {
+      const existingEspnSeason = await prisma.hubLeagueSeason.findFirst({
+        where: { espnLeagueId },
+        include: { hubLeague: true },
+        orderBy: { hubLeague: { createdAt: "asc" } }, // oldest hub is canonical
+      });
+
+      if (existingEspnSeason) {
+        const existingHub = existingEspnSeason.hubLeague;
+
+        // Attach this exact season's row if it isn't linked yet.
+        const hasThisSeason = await prisma.hubLeagueSeason.findFirst({
+          where: { hubLeagueId: existingHub.id, espnLeagueId, season },
+          select: { id: true },
+        });
+        if (!hasThisSeason) {
+          await prisma.hubLeagueSeason.create({
+            data: { hubLeagueId: existingHub.id, espnLeagueId, season, sleeperName: name, sleeperSport: sleeperSport ?? "nfl" },
+          });
+        }
+
+        // Ensure the requesting user is a member (owner keeps their role).
+        await prisma.hubLeagueMember.upsert({
+          where: { hubLeagueId_profileId: { hubLeagueId: existingHub.id, profileId: profile.id } },
+          update: {},
+          create: {
+            hubLeagueId: existingHub.id,
+            profileId: profile.id,
+            role: existingHub.ownerId === profile.id ? "owner" : "member",
+          },
+        });
+
+        return NextResponse.json(
+          { hubLeague: existingHub, alreadyExists: true },
+          { status: 200 }
+        );
+      }
+
+      // Create a new public ESPN hub league + season + owner membership.
+      const espnHub = await prisma.hubLeague.create({
+        data: {
+          name,
+          description,
+          platform: "espn",
+          isPublic: true,
+          ownerId: profile.id,
+          seasons: {
+            create: {
+              espnLeagueId,
+              season,
+              sleeperName: name,
+              sleeperSport: sleeperSport ?? "nfl",
+            },
+          },
+          members: {
+            create: { profileId: profile.id, role: "owner" },
+          },
+        },
+        include: {
+          seasons: true,
+          members: { include: { profile: true } },
+        },
+      });
+
+      return NextResponse.json({ hubLeague: espnHub }, { status: 201 });
+    }
+
+    // A Sleeper league maps to exactly ONE hub league globally, regardless of
+    // who registers it. If a hub league already covers this league (matching
+    // this season's id, or the carried-over previous season's id for renewed
+    // leagues), join it as a member instead of spawning a duplicate. Matching
+    // on any owner — not just the current user — is what prevents each
+    // league-mate from creating their own copy of the same real league.
     const existingSeason = await prisma.hubLeagueSeason.findFirst({
       where: {
-        sleeperLeagueId,
-        hubLeague: {
-          ownerId: profile.id,
-        },
+        sleeperLeagueId: previousLeagueId
+          ? { in: [sleeperLeagueId, previousLeagueId] }
+          : sleeperLeagueId,
       },
-      include: {
-        hubLeague: true,
-      },
+      include: { hubLeague: true },
+      orderBy: { hubLeague: { createdAt: "asc" } }, // oldest hub league is canonical
     });
 
     if (existingSeason) {
-      // Return the existing hubLeague instead of creating a duplicate
+      const existingHub = existingSeason.hubLeague;
+
+      // Ensure this exact season's Sleeper id is attached to the hub league
+      // (the match may have been on the previous season's id).
+      const hasThisSeason = await prisma.hubLeagueSeason.findFirst({
+        where: { hubLeagueId: existingHub.id, sleeperLeagueId },
+        select: { id: true },
+      });
+      if (!hasThisSeason) {
+        await prisma.hubLeagueSeason.create({
+          data: { hubLeagueId: existingHub.id, sleeperLeagueId, season, sleeperName, sleeperSport },
+        });
+      }
+
+      // Make sure the requesting user is a member (owner keeps their role).
+      await prisma.hubLeagueMember.upsert({
+        where: { hubLeagueId_profileId: { hubLeagueId: existingHub.id, profileId: profile.id } },
+        update: {},
+        create: {
+          hubLeagueId: existingHub.id,
+          profileId: profile.id,
+          role: existingHub.ownerId === profile.id ? "owner" : "member",
+        },
+      });
+
       return NextResponse.json(
-        { hubLeague: existingSeason.hubLeague, alreadyExists: true },
+        { hubLeague: existingHub, alreadyExists: true },
         { status: 200 }
       );
     }
@@ -224,26 +325,30 @@ export async function GET(req: NextRequest) {
     const user = await getOptionalAuthUser(); // null for guests
     const { searchParams } = new URL(req.url);
     const sleeperLeagueId = searchParams.get("sleeperLeagueId");
+    const espnLeagueId = searchParams.get("espnLeagueId");
     const previousLeagueId = searchParams.get("previousLeagueId");
 
-    if (!sleeperLeagueId) {
+    if (!sleeperLeagueId && !espnLeagueId) {
       return NextResponse.json(
-        { error: "Missing sleeperLeagueId" },
+        { error: "Missing sleeperLeagueId or espnLeagueId" },
         { status: 400 }
       );
     }
 
-    // Build the league ID list to search — include the previous season's ID
-    // so hub leagues created for prior seasons are visible when browsing any season.
-    const leagueIdFilter = previousLeagueId
-      ? { in: [sleeperLeagueId, previousLeagueId] }
-      : sleeperLeagueId;
+    // Build the where clause — ESPN leagues match on espnLeagueId; Sleeper
+    // leagues also include the previous season's ID so hub leagues created for
+    // prior seasons are visible when browsing any season.
+    const where = espnLeagueId
+      ? { espnLeagueId }
+      : {
+          sleeperLeagueId: previousLeagueId
+            ? { in: [sleeperLeagueId as string, previousLeagueId] }
+            : (sleeperLeagueId as string),
+        };
 
-    // Load all seasons for this Sleeper league (or its predecessor) with hub + members
+    // Load all seasons for this league (or its predecessor) with hub + members
     const hubLeagueSeasons = await prisma.hubLeagueSeason.findMany({
-      where: {
-        sleeperLeagueId: leagueIdFilter,
-      },
+      where,
       include: {
         hubLeague: {
           include: {
