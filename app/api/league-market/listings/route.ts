@@ -15,6 +15,8 @@ function serialize(listing: any, myProfileId: number | null) {
     id: listing.id,
     type: listing.type,
     sleeperLeagueId: listing.sleeperLeagueId,
+    espnLeagueId: listing.espnLeagueId,
+    espnSeason: listing.espnSeason,
     openSpotName: listing.openSpotName,
     leagueName: listing.leagueName,
     platform: listing.platform,
@@ -91,6 +93,7 @@ export async function POST(req: NextRequest) {
     const {
       type, platform, format, scoring, entryFee, description, contact,
       spotsAvailable, record, standingPosition, openSpotName,
+      espnLeagueId, espnSeason,
     } = body;
     let { leagueName, teamCount, sleeperLeagueId } = body;
 
@@ -128,6 +131,8 @@ export async function POST(req: NextRequest) {
         creatorId: profile.id,
         type,
         sleeperLeagueId: sleeperLeagueId || null,
+        espnLeagueId: platform === "ESPN" && espnLeagueId ? String(espnLeagueId) : null,
+        espnSeason: platform === "ESPN" && espnLeagueId ? String(espnSeason ?? "") || null : null,
         openSpotName: type === "open-spot" && openSpotName ? String(openSpotName).trim() : null,
         leagueName: leagueName.trim(),
         platform,

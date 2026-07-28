@@ -39,6 +39,14 @@ type SleeperLeagues = {
   status?: string;
 };
 
+type EspnLeagueEntry = {
+  id: string;
+  leagueId: string;
+  season: string;
+  name: string | null;
+  teamCount: number | null;
+};
+
 function HomeDashboard() {
   const { user } = useUser();
   const router = useRouter();
@@ -60,6 +68,10 @@ function HomeDashboard() {
   const [recentHubLeague, setRecentHubLeague] = useState<{ id: string; name: string } | null>(null);
   const [toolUsage, setToolUsage] = useState<ToolUsage>({});
   const [hubRank, setHubRank] = useState<{ tier: string; score: number | null; seasons: number } | null>(null);
+  const [espnLeagues, setEspnLeagues] = useState<EspnLeagueEntry[]>([]);
+  const [espnSeasonCards, setEspnSeasonCards] = useState<
+    { leagueId: string; name: string; teamCount: number; record: string | null; status: string }[]
+  >([]);
 
   const loadDashboard = useCallback(async () => {
     setIsLeaguesLoading(true);
@@ -121,7 +133,23 @@ function HomeDashboard() {
       try { setRecentHubLeague(JSON.parse(raw)); } catch {}
     }
     setToolUsage(getToolUsage());
+
+    // ESPN leagues load independently of Sleeper
+    fetch("/api/espn/leagues")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (Array.isArray(d?.leagues)) setEspnLeagues(d.leagues); })
+      .catch(() => {});
   }, []);
+
+  // ESPN cards for the selected season — resolves each league's own record and
+  // omits seasons the league didn't exist for.
+  useEffect(() => {
+    if (espnLeagues.length === 0) { setEspnSeasonCards([]); return; }
+    fetch(`/api/espn/leagues/records?season=${selectedSeason}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setEspnSeasonCards(Array.isArray(d?.leagues) ? d.leagues : []))
+      .catch(() => setEspnSeasonCards([]));
+  }, [espnLeagues.length, selectedSeason]);
 
   // Most-used tools first; unused tools keep the default TOOLS order.
   // "Coming soon" entries always sort to the end.
@@ -133,6 +161,8 @@ function HomeDashboard() {
   });
 
   const hasSleeperLinked = !!userProfile?.sleeperProfileId;
+  const hasEspnLinked = !!userProfile?.hasEspnCredentials;
+  const hasAnyLeagues = (leaguesJoined?.length ?? 0) > 0 || espnSeasonCards.length > 0;
 
   const profileImageUrl =
     userProfile?.profileImage ||
@@ -219,18 +249,28 @@ function HomeDashboard() {
 
               <li className="h-px bg-zinc-100 dark:bg-zinc-800/60" />
 
-              {/* ESPN — coming soon */}
-              <li className="flex items-center gap-3 opacity-50">
+              {/* ESPN */}
+              <li className="flex items-center gap-3">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-500/10 text-[10px] font-black text-red-600 dark:text-red-400">
                   ESPN
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">ESPN</p>
-                  <p className="text-[11px] text-zinc-400 dark:text-zinc-600">Coming soon</p>
+                  {hasEspnLinked ? (
+                    <p className="text-[11px] text-zinc-500 truncate">Connected</p>
+                  ) : (
+                    <p className="text-[11px] text-zinc-400 dark:text-zinc-600 italic">Not linked</p>
+                  )}
                 </div>
-                <span className="shrink-0 rounded-full bg-zinc-100 dark:bg-zinc-800/60 px-2 py-0.5 text-[10px] text-zinc-400 dark:text-zinc-600">
-                  ——
-                </span>
+                {hasEspnLinked ? (
+                  <span className="shrink-0 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                    Active
+                  </span>
+                ) : (
+                  <span className="shrink-0 rounded-full bg-zinc-100 dark:bg-zinc-800/60 px-2 py-0.5 text-[10px] text-zinc-400 dark:text-zinc-600">
+                    ——
+                  </span>
+                )}
               </li>
 
               <li className="h-px bg-zinc-100 dark:bg-zinc-800/60" />
@@ -323,7 +363,7 @@ function HomeDashboard() {
                   Your Leagues
                 </h2>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 md:text-sm">
-                  Your Sleeper leagues.
+                  Your Sleeper &amp; ESPN leagues.
                 </p>
               </div>
             </div>
@@ -363,7 +403,7 @@ function HomeDashboard() {
               <span className="h-4 w-4 rounded-full border-2 border-zinc-300 dark:border-zinc-700 border-t-amber-500 dark:border-t-[#F4D06F] animate-spin" />
               <span>Loading leagues…</span>
             </div>
-          ) : (leaguesJoined && leaguesJoined.length > 0) ? (
+          ) : hasAnyLeagues ? (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               {(leaguesJoined ?? []).map((league) => {
                 const record = leagueRecords[league.league_id];
@@ -386,6 +426,21 @@ function HomeDashboard() {
                   />
                 );
               })}
+              {espnSeasonCards.map((league) => (
+                <LeagueCard
+                  key={`espn-${league.leagueId}`}
+                  league_id={league.leagueId}
+                  name={league.name || "ESPN League"}
+                  season={selectedSeason}
+                  sport="nfl"
+                  photo={null}
+                  total_rosters={league.teamCount || undefined}
+                  record={league.record ?? undefined}
+                  status={league.status}
+                  platform="espn"
+                  onClick={() => router.push(`/espn/${league.leagueId}?season=${selectedSeason}`)}
+                />
+              ))}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-zinc-300 dark:border-zinc-700/70 bg-zinc-50 dark:bg-zinc-950/60 px-4 py-8 text-center">
@@ -397,7 +452,7 @@ function HomeDashboard() {
                   No leagues found for {selectedSeason}
                 </h3>
                 <p className="mt-1 max-w-md text-xs text-zinc-500 dark:text-zinc-400 md:text-sm">
-                  Join or create a league on Sleeper to get started.
+                  Link Sleeper or add an ESPN league from your profile to get started.
                 </p>
               </div>
             </div>

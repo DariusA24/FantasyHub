@@ -8,6 +8,7 @@ const isPublicRoute = createRouteMatcher([
   '/league-market(.*)',
   '/api/league-market/(.*)',
   '/league/(.*)',
+  '/espn/(.*)',
   '/player/(.*)',
   '/about(.*)',
   // Read APIs the public league page depends on (writes are auth-checked in-handler)

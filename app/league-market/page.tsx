@@ -18,6 +18,8 @@ type Listing = {
   id: string;
   type: ListingType;
   sleeperLeagueId: string | null;
+  espnLeagueId: string | null;
+  espnSeason: string | null;
   openSpotName: string | null;
   leagueName: string;
   platform: string;
@@ -432,15 +434,21 @@ function CreateListingModal({ onClose, onCreated }: { onClose: () => void; onCre
   const [error, setError]         = useState<string | null>(null);
 
   type SleeperLeagueOpt = { leagueId: string; name: string; season: string; totalRosters: number | null };
-  type SleeperTeam = { rosterId: number; teamName: string; ownerName: string | null; wins: number; losses: number; isOpen: boolean };
+  type EspnLeagueOpt = { leagueId: string; name: string | null; season: string; teamCount: number | null };
+  type SpotTeam = { teamName: string; note?: string };
   const [myLeagues, setMyLeagues]       = useState<SleeperLeagueOpt[]>([]);
   const [leaguesLinked, setLinked]      = useState(true);
   const [leaguesLoading, setLgLoading]  = useState(false);
-  const [teams, setTeams]               = useState<SleeperTeam[]>([]);
+  const [espnLeagues, setEspnLeagues]   = useState<EspnLeagueOpt[]>([]);
+  const [espnLoading, setEspnLoading]   = useState(false);
+  const [espnLeagueId, setEspnLeagueId] = useState("");
+  const [espnSeason, setEspnSeason]     = useState("");
+  const [teams, setTeams]               = useState<SpotTeam[]>([]);
   const [teamsLoading, setTeamsLoading] = useState(false);
   const [openSpotName, setOpenSpot]     = useState("");
 
   const isSleeper = platform === "Sleeper";
+  const isEspn    = platform === "ESPN";
 
   // Pull the poster's Sleeper leagues once they reach the Sleeper form
   useEffect(() => {
@@ -452,6 +460,17 @@ function CreateListingModal({ onClose, onCreated }: { onClose: () => void; onCre
       .catch(() => {})
       .finally(() => setLgLoading(false));
   }, [step, isSleeper, myLeagues.length, leaguesLoading]);
+
+  // Pull the poster's synced ESPN leagues once they reach the ESPN form
+  useEffect(() => {
+    if (step !== "form" || !isEspn || espnLeagues.length > 0 || espnLoading) return;
+    setEspnLoading(true);
+    fetch("/api/espn/leagues")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.leagues) setEspnLeagues(d.leagues); })
+      .catch(() => {})
+      .finally(() => setEspnLoading(false));
+  }, [step, isEspn, espnLeagues.length, espnLoading]);
 
   function selectLeague(leagueId: string) {
     setSleeperLeague(leagueId);
@@ -466,13 +485,38 @@ function CreateListingModal({ onClose, onCreated }: { onClose: () => void; onCre
       setTeamsLoading(true);
       fetch(`/api/league-market/sleeper-teams?leagueId=${leagueId}`)
         .then((r) => (r.ok ? r.json() : null))
-        .then((d) => { if (d?.teams) setTeams(d.teams); })
+        .then((d) => {
+          if (d?.teams) setTeams(d.teams.map((t: any) => ({ teamName: t.teamName, note: t.isOpen ? "open" : undefined })));
+        })
         .catch(() => {})
         .finally(() => setTeamsLoading(false));
     }
   }
+
+  function selectEspnLeague(key: string) {
+    setEspnLeagueId("");
+    setEspnSeason("");
+    setOpenSpot("");
+    setTeams([]);
+    if (!key) return;
+    const [leagueId, season] = key.split("|");
+    setEspnLeagueId(leagueId);
+    setEspnSeason(season);
+    const lg = espnLeagues.find((l) => l.leagueId === leagueId && l.season === season);
+    if (lg) {
+      if (lg.name) setName(lg.name);
+      if (lg.teamCount) setTeamCount(lg.teamCount);
+    }
+    setTeamsLoading(true);
+    fetch(`/api/league-market/espn-teams?leagueId=${leagueId}&season=${season}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.teams) setTeams(d.teams.map((t: any) => ({ teamName: t.teamName }))); })
+      .catch(() => {})
+      .finally(() => setTeamsLoading(false));
+  }
+
   const isFormValid =
-    (leagueName.trim() || (isSleeper && sleeperLeague.trim())) &&
+    (leagueName.trim() || (isSleeper && sleeperLeague.trim()) || (isEspn && espnLeagueId)) &&
     description.trim() && contact.trim() &&
     (listingType !== "open-spot" || Number(spots) > 0);
 
@@ -493,6 +537,8 @@ function CreateListingModal({ onClose, onCreated }: { onClose: () => void; onCre
           description: description.trim(),
           contact: contact.trim(),
           sleeperLeagueId: isSleeper && sleeperLeague.trim() ? sleeperLeague.trim() : null,
+          espnLeagueId: isEspn && espnLeagueId ? espnLeagueId : null,
+          espnSeason: isEspn && espnLeagueId ? espnSeason : null,
           openSpotName: listingType === "open-spot" && openSpotName ? openSpotName : null,
           spotsAvailable: listingType === "open-spot" ? Number(spots) : null,
         }),
@@ -613,7 +659,38 @@ function CreateListingModal({ onClose, onCreated }: { onClose: () => void; onCre
                 </div>
               )}
 
-              {isSleeper && listingType === "open-spot" && sleeperLeague && (
+              {isEspn && (
+                <div>
+                  <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                    ESPN League <span className="normal-case font-normal text-zinc-400">(links the public league)</span>
+                  </label>
+                  {espnLoading ? (
+                    <div className="h-9 animate-pulse rounded-lg bg-zinc-200 dark:bg-zinc-800/50" />
+                  ) : espnLeagues.length === 0 ? (
+                    <p className="rounded-lg border border-zinc-200 dark:border-zinc-800/60 bg-zinc-50 dark:bg-zinc-900/40 px-3 py-2 text-[11px] text-zinc-500">
+                      Add an ESPN league on your profile to pick one here.
+                    </p>
+                  ) : (
+                    <select
+                      value={espnLeagueId ? `${espnLeagueId}|${espnSeason}` : ""}
+                      onChange={(e) => selectEspnLeague(e.target.value)}
+                      className={selectCls}
+                    >
+                      <option value="">Choose a league…</option>
+                      {espnLeagues.map((l) => (
+                        <option key={`${l.leagueId}|${l.season}`} value={`${l.leagueId}|${l.season}`}>
+                          {l.name ?? `League ${l.leagueId}`} ({l.season})
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <p className="mt-1 text-[11px] text-zinc-400 dark:text-zinc-600">
+                    Public ESPN leagues let people browse rosters and standings before joining.
+                  </p>
+                </div>
+              )}
+
+              {listingType === "open-spot" && (sleeperLeague || espnLeagueId) && (
                 <div>
                   <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
                     Which spot is open?
@@ -623,9 +700,9 @@ function CreateListingModal({ onClose, onCreated }: { onClose: () => void; onCre
                   ) : (
                     <select value={openSpotName} onChange={(e) => setOpenSpot(e.target.value)} className={selectCls}>
                       <option value="">Choose the team being handed off…</option>
-                      {teams.map((t) => (
-                        <option key={t.rosterId} value={t.teamName}>
-                          {t.teamName}{t.isOpen ? " · open" : ""}
+                      {teams.map((t, i) => (
+                        <option key={`${t.teamName}-${i}`} value={t.teamName}>
+                          {t.teamName}{t.note ? ` · ${t.note}` : ""}
                         </option>
                       ))}
                     </select>
@@ -732,14 +809,18 @@ function ListingDetailModal({ listing, onClose }: { listing: Listing; onClose: (
               <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{listing.openSpotName}</p>
             </div>
           )}
-          {listing.sleeperLeagueId && (
+          {(listing.sleeperLeagueId || listing.espnLeagueId) && (
             <Link
-              href={`/league/${listing.sleeperLeagueId}`}
+              href={
+                listing.sleeperLeagueId
+                  ? `/league/${listing.sleeperLeagueId}`
+                  : `/espn/${listing.espnLeagueId}?season=${listing.espnSeason ?? ""}`
+              }
               className="flex items-center justify-between gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-4 py-3 transition hover:bg-emerald-500/10"
             >
               <div>
                 <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">View the public league</p>
-                <p className="text-[11px] text-zinc-500 dark:text-zinc-400">See rosters, history, and past champions</p>
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400">See rosters, history, and standings</p>
               </div>
               <FiExternalLink className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
             </Link>
@@ -770,7 +851,7 @@ function ListingCard({ listing, onClick }: { listing: Listing; onClick: () => vo
             </span>
             <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${FORMAT_STYLE[listing.format]}`}>{listing.format}</span>
             <span className="rounded-full border border-zinc-200 dark:border-zinc-800/60 px-2 py-0.5 text-[10px] text-zinc-500">{listing.platform}</span>
-            {listing.sleeperLeagueId && (
+            {(listing.sleeperLeagueId || listing.espnLeagueId) && (
               <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
                 <FiExternalLink className="h-2.5 w-2.5" /> Public league
               </span>
