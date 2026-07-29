@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from 'next/font/google';
+import { Inter, Zilla_Slab } from 'next/font/google';
 import "./globals.css";
 import Navbar from "../components/navbar/Navbar";
 import Footer from "../components/ui/Footer";
@@ -9,6 +9,7 @@ import InstallPrompt from "../components/pwa/InstallPrompt";
 import { ClerkProvider } from '@clerk/nextjs'
 
 const inter = Inter({subsets: ['latin']});
+const zillaSlab = Zilla_Slab({ subsets: ['latin'], weight: ['500', '600', '700'], variable: '--font-slab' });
 
 export const metadata: Metadata = {
   title: "LeagueShelf",
@@ -38,7 +39,7 @@ export default function RootLayout({
     <ClerkProvider >
     <html lang="en" suppressHydrationWarning>
       <body
-        className={inter.className}
+        className={`${inter.className} ${zillaSlab.variable}`}
       >
         <Providers>
         <ServiceWorkerRegister />

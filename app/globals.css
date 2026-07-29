@@ -28,6 +28,7 @@ body {
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-slab);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -134,34 +135,73 @@ body {
   }
 }
 
+/* ─── Vintage program palette ───
+   Cream paper + field green + trophy gold + leather brown.
+   Components inside .hub-page reference these vars directly
+   (e.g. bg-[var(--card)]) so dark mode needs no dark: variants. */
+.hub-page {
+  --paper: #f3eee1;        /* page background — warm cream */
+  --card: #fbf8ef;         /* card surface */
+  --card-2: #ece5d1;       /* inner wells / skeletons */
+  --ink: #232016;          /* primary text */
+  --ink-2: #6c6350;        /* secondary text */
+  --ink-3: #a2977e;        /* muted text */
+  --line: #ddd3bb;         /* default borders */
+  --line-2: #c9bda0;       /* stronger borders */
+  --field: #1e4d2b;        /* field green — primary */
+  --field-2: #2f6c40;      /* lighter green (text/icons) */
+  --leather: #8b5e3c;      /* leather brown accents */
+  --clay: #a0432c;         /* brick red — losses / trash talk */
+  --gold: #a97e28;         /* trophy gold, readable on cream */
+  --gold-bright: #f4d06f;  /* gold for fills and badges */
+}
+
+/* "Night game": deep green-charcoal, never brown-black */
+.dark .hub-page {
+  --paper: #0b100c;
+  --card: #121a14;
+  --card-2: #1a241b;
+  --ink: #ede9dc;
+  --ink-2: #a5a894;
+  --ink-3: #6f7563;
+  --line: #263426;
+  --line-2: #324430;
+  --field: #2f6c40;
+  --field-2: #57a86c;
+  --leather: #b07d50;
+  --clay: #c56a4f;
+  --gold: #e2bc5b;
+  --gold-bright: #f4d06f;
+}
+
 @layer components {
   /* ─── Hub league page shell ─── */
   .hub-page {
-    @apply min-h-screen bg-gray-50 dark:bg-[#05060a];
+    @apply min-h-screen bg-[var(--paper)] text-[var(--ink)];
   }
 
   /* ─── Section cards ─── */
   .hub-card {
-    @apply rounded-2xl border border-gray-200 bg-white dark:border-zinc-800/60 dark:bg-[#0a0c14];
+    @apply rounded-2xl border border-[var(--line)] bg-[var(--card)];
   }
 
   /* ─── Inner list items / sub-cards ─── */
   .hub-inner-card {
-    @apply border border-gray-200 bg-gray-50 dark:border-zinc-800/50 dark:bg-zinc-900/40;
+    @apply border border-[var(--line)] bg-[var(--card-2)]/60;
   }
 
   /* ─── Primary text ─── */
   .hub-text-primary {
-    @apply text-gray-900 dark:text-zinc-100;
+    @apply text-[var(--ink)];
   }
 
   /* ─── Secondary text ─── */
   .hub-text-secondary {
-    @apply text-gray-500 dark:text-zinc-400;
+    @apply text-[var(--ink-2)];
   }
 
   /* ─── Muted text ─── */
   .hub-text-muted {
-    @apply text-gray-400 dark:text-zinc-500;
+    @apply text-[var(--ink-3)];
   }
 }

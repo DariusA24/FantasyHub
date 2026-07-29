@@ -31,22 +31,22 @@ export function LeagueNav() {
   return (
     <>
       {isDemo && (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#F4D06F]/20 bg-[#F4D06F]/5 px-4 py-2.5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--gold)]/40 bg-[var(--gold-bright)]/10 px-4 py-2.5">
           <div className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#F4D06F] shadow-[0_0_8px_rgba(244,208,111,0.8)]" />
-            <p className="text-xs font-medium text-amber-700 dark:text-[#F4D06F]">
+            <span className="h-1.5 w-1.5 rounded-full bg-[var(--gold)]" />
+            <p className="text-xs font-medium text-[var(--gold)]">
               Demo mode — preview with mock data. No account needed.
             </p>
           </div>
           <SignUpButton>
-            <button className="inline-flex items-center gap-1.5 rounded-full bg-[#F4D06F] px-4 py-1.5 text-[11px] font-bold text-zinc-950 shadow-[0_0_20px_rgba(244,208,111,0.3)] transition hover:bg-[#f7e07a]">
+            <button className="inline-flex items-center gap-1.5 rounded-full bg-[var(--field)] px-4 py-1.5 text-[11px] font-bold text-[#f7f4ec] transition hover:bg-[var(--field-2)]">
               Create your hub free
               <FiArrowRight className="h-3 w-3" />
             </button>
           </SignUpButton>
         </div>
       )}
-    <nav className="mb-6 border-b border-gray-200 dark:border-zinc-800 pb-2">
+    <nav className="mb-6 border-b border-[var(--line)] pb-2">
       <ul className="ml-auto flex flex-nowrap overflow-x-auto justify-start gap-2 sm:justify-end sm:gap-4 text-sm">
         {items.map((item) => {
           const isActive = pathname === item.href;
@@ -58,8 +58,8 @@ export function LeagueNav() {
                 className={
                   "px-2 py-1 rounded inline-flex items-center gap-1 whitespace-nowrap " +
                   (isActive
-                    ? "text-[#F4D06F] border-b-2 border-[#F4D06F]"
-                    : "text-gray-500 hover:text-gray-800 dark:text-zinc-400 dark:hover:text-zinc-200")
+                    ? "text-[var(--field-2)] font-semibold border-b-2 border-[var(--field)]"
+                    : "text-[var(--ink-2)] hover:text-[var(--ink)]")
                 }
               >
                 {Icon && <Icon className="h-4 w-4" />}
